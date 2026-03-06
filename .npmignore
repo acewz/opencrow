@@ -1,0 +1,16 @@
+.git
+.github
+.githooks
+.claude
+.env
+.env.*
+!.env.example
+coverage
+data
+logs
+scripts
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+.playwright-mcp
