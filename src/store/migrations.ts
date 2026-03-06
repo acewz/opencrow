@@ -1387,6 +1387,22 @@ export const MIGRATIONS = [
   `ALTER TABLE task_embeddings ADD COLUMN IF NOT EXISTS complexity_score INTEGER DEFAULT 1`,
   `ALTER TABLE task_embeddings ADD COLUMN IF NOT EXISTS requires_decomposition BOOLEAN DEFAULT FALSE`,
 
+  // --- Research Signals (for idea generation pipeline) ---
+  `CREATE TABLE IF NOT EXISTS research_signals (
+    id TEXT PRIMARY KEY,
+    agent_id TEXT NOT NULL,
+    signal_type TEXT NOT NULL DEFAULT 'trend',
+    title TEXT NOT NULL,
+    detail TEXT NOT NULL,
+    source TEXT NOT NULL,
+    source_url TEXT NOT NULL DEFAULT '',
+    strength INTEGER NOT NULL DEFAULT 3,
+    themes TEXT NOT NULL DEFAULT '',
+    consumed BOOLEAN NOT NULL DEFAULT false,
+    created_at INTEGER NOT NULL DEFAULT (EXTRACT(EPOCH FROM NOW())::INTEGER)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_signals_agent ON research_signals (agent_id, consumed, created_at DESC)`,
+
   // Phase 6: DexScreener token tracking
   `CREATE TABLE IF NOT EXISTS dexscreener_tokens (
     id TEXT PRIMARY KEY,

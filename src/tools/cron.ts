@@ -32,7 +32,7 @@ export function createCronTool(config: CronToolConfig): ToolDefinition {
     description: `Manage scheduled/recurring tasks. Actions:
 - status: Show scheduler status
 - list: List all cron jobs
-- add: Create a new cron job (requires: name, schedule_kind, message; optional: every_ms, cron_expr, at, agent_id, timeout_seconds, deliver_channel, deliver_chat_id, delete_after_run)
+- add: Create a new cron job (requires: name, schedule_kind, message; optional: every_ms, cron_expr, at, agent_id, timeout_seconds, deliver_channel, deliver_chat_id, delete_after_run, mode)
 - update: Update a job (requires: job_id; optional: name, enabled, schedule fields, message)
 - remove: Delete a job (requires: job_id)
 - run: Run a job immediately (requires: job_id)
@@ -108,6 +108,12 @@ export function createCronTool(config: CronToolConfig): ToolDefinition {
         delete_after_run: {
           type: "boolean",
           description: "Delete job after first run.",
+        },
+        mode: {
+          type: "string",
+          enum: ["research", "ideation", "full"],
+          description:
+            "For idea-gen agents only. research = save signals only, ideation = synthesize signals into ideas, full = research + ideation.",
         },
       },
       required: ["action"],
@@ -227,11 +233,15 @@ async function handleAdd(
     return { output: "Error: could not compute next run time", isError: true };
   }
 
+  const mode = input.mode as string | undefined;
   const payload: CronPayload = {
     kind: "agentTurn",
     message,
     agentId: (input.agent_id as string) ?? config.currentAgentId,
     timeoutSeconds: (input.timeout_seconds as number) ?? undefined,
+    mode: mode === "research" || mode === "ideation" || mode === "full"
+      ? mode
+      : undefined,
   };
 
   const delivery: CronDelivery = input.deliver_channel
@@ -290,6 +300,9 @@ async function handleUpdate(
           message: input.message as string,
           agentId: input.agent_id as string | undefined,
           timeoutSeconds: input.timeout_seconds as number | undefined,
+          mode: (input.mode === "research" || input.mode === "ideation" || input.mode === "full")
+            ? input.mode as CronPayload["mode"]
+            : undefined,
         }
       : undefined,
   };
