@@ -3,12 +3,15 @@ export type CronSchedule =
   | { readonly kind: "every"; readonly everyMs: number }
   | { readonly kind: "cron"; readonly expr: string; readonly tz?: string };
 
+export type IdeaGenMode = "research" | "ideation" | "full";
+
 export interface CronPayload {
   readonly kind: "agentTurn" | "internal";
   readonly message?: string;
   readonly agentId?: string;
   readonly timeoutSeconds?: number;
   readonly handler?: string; // For internal handlers (e.g., "scoring-engine")
+  readonly mode?: IdeaGenMode; // For idea-gen agents: research, ideation, or full
 }
 
 export interface CronDelivery {

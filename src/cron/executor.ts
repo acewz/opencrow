@@ -1,4 +1,4 @@
-import type { CronJob, CronRunRecord, CronProgressEntry } from "./types";
+import type { CronJob, CronRunRecord, CronProgressEntry, IdeaGenMode } from "./types";
 import type { CronStore } from "./store";
 import type { AgentRegistry } from "../agents/registry";
 import type { ToolRegistry } from "../tools/registry";
@@ -9,7 +9,9 @@ import type { ProgressEvent } from "../agent/types";
 import { runAgentIsolated } from "../agents/runner";
 import { computeNextRunAt } from "./schedule";
 import { getIdeasSince } from "../sources/ideas/store";
+import { getRecentSignals } from "../sources/ideas/signals-store";
 import { formatIdeasMessage } from "./format-ideas";
+import { formatSignalsMessage } from "./format-signals";
 import { createLogger } from "../logger";
 import { runScoringEngine } from "./scoring-engine";
 import { runWorkloadSampler } from "./workload-sampler";
@@ -261,12 +263,16 @@ export async function executeCronJob(
   let resultSummary: string | null = null;
   let error: string | null = null;
 
+  const isIdeaGen = IDEA_GEN_AGENTS.has(agentId);
+  const mode: IdeaGenMode = (isIdeaGen && job.payload.mode) ? job.payload.mode : "full";
+  const task = buildTaskMessage(job.payload.message ?? "", isIdeaGen, mode);
+
   try {
     const result = await runAgentIsolated({
       agentRegistry: deps.agentRegistry,
       baseToolRegistry: deps.baseToolRegistry,
       agentId,
-      task: job.payload.message ?? "",
+      task,
       buildRegistryForAgent: deps.buildRegistryForAgent,
       buildSystemPrompt: deps.buildSystemPrompt,
       onProgress,
@@ -279,15 +285,26 @@ export async function executeCronJob(
 
     resultSummary = result.text.slice(0, 2000);
 
-    // Format idea generation results from DB instead of raw agent text
+    // Format idea/signal results from DB instead of raw agent text
     let deliveryText = result.text;
     let preformatted = false;
 
-    if (IDEA_GEN_AGENTS.has(agentId)) {
-      const ideas = await getIdeasSince(agentId, startedAt);
-      if (ideas.length > 0) {
-        deliveryText = formatIdeasMessage(job.name, ideas);
-        preformatted = true;
+    if (isIdeaGen) {
+      if (mode === "research") {
+        // Research mode: report signals saved, not ideas
+        const signals = await getRecentSignals(agentId, 20);
+        const recentSignals = signals.filter((s) => s.created_at >= startedAt);
+        if (recentSignals.length > 0) {
+          deliveryText = formatSignalsMessage(job.name, recentSignals);
+          preformatted = true;
+        }
+      } else {
+        // Ideation or full mode: report ideas generated
+        const ideas = await getIdeasSince(agentId, startedAt);
+        if (ideas.length > 0) {
+          deliveryText = formatIdeasMessage(job.name, ideas);
+          preformatted = true;
+        }
       }
     }
 
@@ -380,6 +397,27 @@ export async function executeCronJob(
     endedAt,
     progress: progressEntries.length > 0 ? progressEntries : null,
   };
+}
+
+const MODE_INSTRUCTIONS: Record<IdeaGenMode, string> = {
+  research:
+    "Run in RESEARCH MODE. Focus entirely on Phase 1 (dedup check) and Phase 2 (deep research). Save signals liberally using save_signal. Do NOT generate or save ideas — just accumulate raw research signals.",
+  ideation:
+    "Run in IDEATION MODE. Focus on Phase 1 (dedup check), Phase 3 (synthesis from accumulated signals), Phase 4 (ideation & self-critique), and Phase 5 (save ideas). Use get_signals and get_signal_themes to read your accumulated research. Do NOT do broad research — work from your signal backlog.",
+  full:
+    "Run in FULL MODE. Execute all phases: Phase 1 (dedup), Phase 2 (research & save signals), Phase 3 (synthesis), Phase 4 (ideation & self-critique), Phase 5 (save ideas). After saving ideas, consume the signals you used.",
+};
+
+function buildTaskMessage(
+  baseMessage: string,
+  isIdeaGen: boolean,
+  mode: IdeaGenMode,
+): string {
+  if (!isIdeaGen) return baseMessage;
+  const modeInstruction = MODE_INSTRUCTIONS[mode];
+  return baseMessage
+    ? `${modeInstruction}\n\nAdditional context: ${baseMessage}`
+    : modeInstruction;
 }
 
 async function deliverResult(

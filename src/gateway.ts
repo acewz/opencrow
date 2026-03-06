@@ -294,31 +294,43 @@ export function createGateway(config: OpenCrowConfig): Gateway {
           });
         }
 
-        // Register idea generation cron jobs (every 6 hours)
-        const ideaGenMessage =
-          "Execute your full research workflow: check history and feedback, research all available sources deeply, synthesize cross-source patterns, generate and self-critique candidates, save only the top ideas. End with a summary of key trends observed and ideas generated.";
+        // Register idea generation cron jobs — phased pipeline
+        // Research: every 4h (UTC: 0,4,8,12,16,20) — accumulate signals
+        // Ideation: twice daily (UTC: 6,18 = 9AM/9PM UTC+3) — synthesize signals into ideas
+        // Research runs 2h before ideation so fresh signals are ready
 
-        const ideaCronJobs = [
-          {
-            name: "mobile-idea-generation",
-            agentId: "mobile-idea-gen",
-          },
-          {
-            name: "crypto-idea-generation",
-            agentId: "crypto-idea-gen",
-          },
-          {
-            name: "ai-idea-generation",
-            agentId: "ai-idea-gen",
-          },
+        const ideaGenAgents = [
+          "mobile-idea-gen",
+          "crypto-idea-gen",
+          "ai-idea-gen",
+          "oss-idea-gen",
         ] as const;
+
+        const ideaCronJobs = ideaGenAgents.flatMap((agentId) => {
+          const label = agentId.replace(/-/g, " ").replace(" gen", "");
+          return [
+            {
+              name: `${agentId}-research`,
+              agentId,
+              schedule: "0 0,4,8,12,16,20 * * *",
+              mode: "research" as const,
+              logLabel: `${label} research (every 4h)`,
+            },
+            {
+              name: `${agentId}-ideation`,
+              agentId,
+              schedule: "0 6,18 * * *",
+              mode: "ideation" as const,
+              logLabel: `${label} ideation (9AM/9PM UTC+3)`,
+            },
+          ];
+        });
 
         for (const job of ideaCronJobs) {
           const existing = existingJobs.find((j) => j.name === job.name);
           if (!existing) {
             const primaryTelegramUser =
               config.channels.telegram.allowedUserIds[0];
-            // Deliver through agent-specific Telegram bot
             const hasAgentBot = agentBots.channelsByAgent.has(job.agentId);
             const delivery =
               primaryTelegramUser && hasAgentBot
@@ -337,17 +349,18 @@ export function createGateway(config: OpenCrowConfig): Gateway {
 
             await cronStore.addJob({
               name: job.name,
-              enabled: false,
-              schedule: { kind: "cron", expr: "0 */6 * * *" },
+              enabled: true,
+              schedule: { kind: "cron", expr: job.schedule },
               payload: {
                 kind: "agentTurn",
                 agentId: job.agentId,
-                message: ideaGenMessage,
+                mode: job.mode,
               },
               delivery,
             });
-            log.info(`Registered ${job.name} cron job (every 6h)`, {
+            log.info(`Registered ${job.logLabel} cron job`, {
               agentId: job.agentId,
+              mode: job.mode,
               delivery: delivery.mode,
               channel:
                 delivery.mode === "announce"
@@ -355,7 +368,7 @@ export function createGateway(config: OpenCrowConfig): Gateway {
                   : "none",
             });
           } else if (existing.payload.kind === "agentTurn") {
-            // Sync message and delivery channel for existing jobs
+            // Sync mode and delivery channel for existing jobs
             const primaryTelegramUser =
               config.channels.telegram.allowedUserIds[0];
             const hasAgentBot = agentBots.channelsByAgent.has(job.agentId);
@@ -363,20 +376,20 @@ export function createGateway(config: OpenCrowConfig): Gateway {
               ? `telegram:${job.agentId}`
               : "telegram";
 
-            const needsMessageUpdate =
-              existing.payload.message !== ideaGenMessage;
+            const needsModeUpdate =
+              existing.payload.mode !== job.mode;
             const needsDeliveryUpdate =
               primaryTelegramUser &&
               existing.delivery.mode === "announce" &&
               existing.delivery.channel !== expectedChannel;
 
-            if (needsMessageUpdate || needsDeliveryUpdate) {
+            if (needsModeUpdate || needsDeliveryUpdate) {
               await cronStore.updateJob(existing.id, {
-                ...(needsMessageUpdate && {
+                ...(needsModeUpdate && {
                   payload: {
                     kind: "agentTurn" as const,
                     agentId: job.agentId,
-                    message: ideaGenMessage,
+                    mode: job.mode,
                   },
                 }),
                 ...(needsDeliveryUpdate && {
@@ -389,9 +402,9 @@ export function createGateway(config: OpenCrowConfig): Gateway {
               });
               log.info(`Updated ${job.name} cron job`, {
                 agentId: job.agentId,
-                messageUpdated: needsMessageUpdate,
+                mode: job.mode,
+                modeUpdated: needsModeUpdate,
                 deliveryUpdated: needsDeliveryUpdate,
-                channel: needsDeliveryUpdate ? expectedChannel : undefined,
               });
             }
           }

@@ -62,6 +62,7 @@ import { createGetObservationsTool } from "../tools/memory";
 import { createAnalyticsTools } from "../tools/analytics";
 import { createRoutingDashboardTools } from "../tools/routing-dashboard";
 import { createIdeaTools } from "../tools/ideas";
+import { createSignalTools } from "../tools/signals";
 import { createProjectContextTool } from "../tools/project-context";
 import { createValidateCodeTool } from "../tools/validate-code";
 import { createRunTestsTool } from "../tools/run-tests";
@@ -435,6 +436,13 @@ export async function bootstrap(
         allowsTool(t.name),
       );
       if (ideaTools.length > 0) registry = registry.withTools(ideaTools);
+    }
+
+    {
+      const signalTools = [...createSignalTools(agent.id)].filter((t) =>
+        allowsTool(t.name),
+      );
+      if (signalTools.length > 0) registry = registry.withTools(signalTools);
     }
 
     if (allowsTool("get_scraper_status")) {
