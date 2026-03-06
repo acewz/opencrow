@@ -1,0 +1,116 @@
+import { Hono } from "hono";
+import {
+  getIdeas,
+  getIdeaById,
+  getIdeaStats,
+  updateIdeaRating,
+  getStageCounts,
+  updateIdeaStage,
+} from "../../sources/ideas/store";
+
+export function createIdeasRoutes(): Hono {
+  const app = new Hono();
+
+  app.get("/ideas", async (c) => {
+    const agentId = c.req.query("agent_id");
+    const category = c.req.query("category");
+    const limitParam = c.req.query("limit");
+    const offsetParam = c.req.query("offset");
+    const limit = Math.max(1, Math.min(Number(limitParam ?? "50") || 50, 200));
+    const offset = Math.max(0, Number(offsetParam ?? "0") || 0);
+
+    const ideas = await getIdeas({
+      agentId: agentId || undefined,
+      category: category || undefined,
+      limit,
+      offset,
+    });
+
+    return c.json({ success: true, data: ideas });
+  });
+
+  app.get("/ideas/stats", async (c) => {
+    const stats = await getIdeaStats();
+    return c.json({ success: true, data: stats });
+  });
+
+  app.get("/ideas/stage-counts", async (c) => {
+    const counts = await getStageCounts();
+    return c.json({ success: true, data: counts });
+  });
+
+  app.get("/ideas/:id", async (c) => {
+    const id = c.req.param("id");
+    const idea = await getIdeaById(id);
+    if (!idea) {
+      return c.json({ success: false, error: "Idea not found" }, 404);
+    }
+    return c.json({ success: true, data: idea });
+  });
+
+  app.patch("/ideas/:id", async (c) => {
+    const id = c.req.param("id");
+
+    let body: { rating?: string; feedback?: string };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ success: false, error: "Invalid JSON body" }, 400);
+    }
+
+    const { rating, feedback } = body;
+    if (rating !== "good" && rating !== "bad") {
+      return c.json(
+        { success: false, error: 'rating must be "good" or "bad"' },
+        400,
+      );
+    }
+
+    const updated = await updateIdeaRating(id, {
+      rating,
+      feedback: feedback ?? "",
+    });
+
+    if (!updated) {
+      return c.json({ success: false, error: "Idea not found" }, 404);
+    }
+
+    return c.json({ success: true, data: updated });
+  });
+
+  app.patch("/ideas/:id/stage", async (c) => {
+    const id = c.req.param("id");
+    let body: { stage?: string };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ success: false, error: "Invalid JSON body" }, 400);
+    }
+
+    const validStages = [
+      "signal",
+      "synthesis",
+      "idea",
+      "validated",
+      "archived",
+    ];
+    if (!body.stage || !validStages.includes(body.stage)) {
+      return c.json(
+        {
+          success: false,
+          error: `stage must be one of: ${validStages.join(", ")}`,
+        },
+        400,
+      );
+    }
+
+    const updated = await updateIdeaStage(id, body.stage);
+    if (!updated) {
+      return c.json({ success: false, error: "Idea not found" }, 404);
+    }
+
+    return c.json({ success: true, data: updated });
+  });
+
+  return app;
+}

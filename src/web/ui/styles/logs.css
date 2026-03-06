@@ -1,0 +1,574 @@
+/* ===================================================================
+   Logs Page — Terminal-inspired real-time log viewer
+   Compact toolbar, dropdown filters, maximum log visibility
+   All classes prefixed lg-
+   =================================================================== */
+
+/* --- Page Layout --- */
+.lg-page {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+/* --- Header --- */
+.lg-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.lg-header-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.lg-title {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-weight: 700;
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+  color: var(--color-strong);
+  line-height: 1;
+}
+
+.lg-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.lg-live-badge.live {
+  background: var(--color-success-subtle);
+  color: var(--color-success);
+}
+
+.lg-live-badge.paused {
+  background: var(--color-warning-subtle);
+  color: var(--color-warning);
+}
+
+.lg-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.lg-live-badge.live .lg-live-dot {
+  background: var(--color-success);
+  box-shadow: 0 0 6px rgba(45, 212, 191, 0.5);
+  animation: lg-pulse 2s ease-in-out infinite;
+}
+
+.lg-live-badge.paused .lg-live-dot {
+  background: var(--color-warning);
+}
+
+@keyframes lg-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+/* --- Level Pills --- */
+.lg-levels {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+
+.lg-level-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  font-weight: 500;
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-1);
+  color: var(--color-faint);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.lg-level-pill:hover {
+  border-color: var(--color-border-2);
+  color: var(--color-foreground);
+}
+
+.lg-level-pill-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.lg-level-pill.debug .lg-level-pill-dot { background: var(--color-faint); }
+.lg-level-pill.info .lg-level-pill-dot  { background: var(--color-accent); }
+.lg-level-pill.warn .lg-level-pill-dot  { background: var(--color-warning); }
+.lg-level-pill.error .lg-level-pill-dot { background: var(--color-danger); }
+
+.lg-level-pill-count {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--color-faint);
+  min-width: 16px;
+  text-align: center;
+}
+
+.lg-level-pill.active {
+  font-weight: 600;
+}
+
+.lg-level-pill.active.debug {
+  background: rgba(136, 136, 136, 0.1);
+  border-color: var(--color-faint);
+  color: var(--color-muted);
+}
+
+.lg-level-pill.active.info {
+  background: var(--color-accent-subtle);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+}
+
+.lg-level-pill.active.warn {
+  background: var(--color-warning-subtle);
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.lg-level-pill.active.error {
+  background: var(--color-danger-subtle);
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.lg-level-pill.active .lg-level-pill-count {
+  color: inherit;
+  opacity: 0.7;
+}
+
+/* --- Toolbar --- */
+.lg-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.lg-search {
+  position: relative;
+  flex: 1;
+  min-width: 160px;
+}
+
+.lg-search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-faint);
+  pointer-events: none;
+  font-size: 0.8rem;
+}
+
+.lg-search input {
+  width: 100%;
+  padding: 7px 30px 7px 30px;
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-lg);
+  color: var(--color-foreground);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.lg-search input:focus {
+  border-color: var(--color-accent);
+}
+
+.lg-search input::placeholder {
+  color: var(--color-faint);
+}
+
+.lg-search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--color-faint);
+  cursor: pointer;
+  font-size: 0.7rem;
+  padding: 2px 5px;
+  border-radius: 4px;
+  transition: color 0.15s ease;
+}
+
+.lg-search-clear:hover {
+  color: var(--color-foreground);
+}
+
+.lg-search-active input {
+  border-color: rgba(192, 132, 252, 0.5) !important;
+  box-shadow: 0 0 0 1px rgba(192, 132, 252, 0.15);
+}
+
+.lg-count {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-faint);
+  white-space: nowrap;
+}
+
+.lg-scroll-toggle {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-faint);
+  cursor: pointer;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg-1);
+  transition: border-color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.lg-scroll-toggle:hover {
+  border-color: var(--color-border-2);
+}
+
+.lg-scroll-toggle input[type="checkbox"] {
+  width: auto;
+  accent-color: var(--color-accent);
+}
+
+/* --- Log Container --- */
+.lg-container {
+  position: relative;
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.lg-scroll-area {
+  max-height: calc(100vh - 240px);
+  min-height: 300px;
+  overflow-y: auto;
+}
+
+/* --- Column Header --- */
+.lg-col-header {
+  display: grid;
+  grid-template-columns: 100px 50px 1fr;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--color-bg-2);
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 0.6rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-faint);
+}
+
+/* --- Log Entry --- */
+.lg-entry {
+  display: grid;
+  grid-template-columns: 100px 50px 1fr;
+  gap: 10px;
+  padding: 5px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.025);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+  transition: background 0.1s ease;
+  border-left: 3px solid transparent;
+}
+
+.lg-entry:last-child {
+  border-bottom: none;
+}
+
+.lg-entry:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.lg-entry.clickable {
+  cursor: pointer;
+}
+
+/* Level accent borders */
+.lg-entry.error { border-left-color: var(--color-danger); background: rgba(248, 113, 113, 0.03); }
+.lg-entry.warn  { border-left-color: var(--color-warning); background: rgba(251, 191, 36, 0.02); }
+.lg-entry.info  { border-left-color: transparent; }
+.lg-entry.debug { border-left-color: transparent; }
+
+.lg-entry.error:hover { background: rgba(248, 113, 113, 0.06); }
+.lg-entry.warn:hover  { background: rgba(251, 191, 36, 0.05); }
+
+/* --- Entry Cells --- */
+.lg-time {
+  color: var(--color-faint);
+  white-space: nowrap;
+  font-size: 0.7rem;
+  padding-top: 2px;
+}
+
+.lg-level-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 0;
+  border-radius: 3px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  width: fit-content;
+  min-width: 38px;
+  text-align: center;
+  height: fit-content;
+}
+
+.lg-level-badge.error { background: rgba(248, 113, 113, 0.15); color: var(--color-danger); }
+.lg-level-badge.warn  { background: rgba(251, 191, 36, 0.15); color: var(--color-warning); }
+.lg-level-badge.info  { background: var(--color-accent-subtle); color: var(--color-accent); }
+.lg-level-badge.debug { background: rgba(255, 255, 255, 0.04); color: var(--color-faint); }
+
+/* --- Message Area --- */
+.lg-message-area {
+  min-width: 0;
+}
+
+.lg-message-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-right: 6px;
+  vertical-align: baseline;
+}
+
+.lg-tag {
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 0px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+}
+
+.lg-tag-process {
+  background: var(--color-accent-subtle);
+  color: var(--color-accent);
+  border: 1px solid rgba(167, 139, 250, 0.12);
+}
+
+.lg-tag-context {
+  background: rgba(192, 132, 252, 0.08);
+  color: var(--color-purple);
+  border: 1px solid rgba(192, 132, 252, 0.12);
+}
+
+.lg-message-text {
+  color: var(--color-foreground);
+  word-break: break-word;
+}
+
+.lg-entry.error .lg-message-text {
+  color: var(--color-danger);
+}
+
+.lg-expand-hint {
+  color: var(--color-accent);
+  font-weight: 600;
+  margin-left: 6px;
+  font-size: 0.7rem;
+  opacity: 0.5;
+  transition: opacity 0.15s ease;
+}
+
+.lg-entry:hover .lg-expand-hint {
+  opacity: 1;
+}
+
+.lg-collapse-hint {
+  color: var(--color-faint);
+}
+
+/* --- Expanded Data --- */
+.lg-data {
+  grid-column: 1 / -1;
+  margin: 4px 0 2px 0;
+  padding: 0;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+.lg-data pre {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-muted);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.lg-data-line {
+  display: flex;
+  gap: 10px;
+  padding: 0 12px;
+  transition: background 0.1s ease;
+}
+
+.lg-data-line:first-child { padding-top: 8px; }
+.lg-data-line:last-child  { padding-bottom: 8px; }
+
+.lg-data-line:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.lg-data-linenum {
+  color: var(--color-faint);
+  user-select: none;
+  min-width: 20px;
+  text-align: right;
+  font-size: 0.6rem;
+  opacity: 0.4;
+  padding-top: 1px;
+}
+
+/* JSON syntax colors */
+.lg-json-key    { color: #93c5fd; }
+.lg-json-string { color: #5eead4; }
+.lg-json-number { color: #fbbf24; }
+.lg-json-bool   { color: #c084fc; }
+
+/* --- New Logs Indicator --- */
+.lg-new-logs {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 14px;
+  border-radius: 9999px;
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: var(--color-accent);
+  color: var(--color-bg);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(167, 139, 250, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  animation: agSlideUp 0.2s ease-out;
+  z-index: 10;
+}
+
+.lg-new-logs:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 6px 20px rgba(167, 139, 250, 0.4);
+}
+
+/* --- Empty State --- */
+.lg-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 1.5rem;
+  text-align: center;
+}
+
+.lg-empty-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.lg-empty-text {
+  font-size: 0.82rem;
+  color: var(--color-faint);
+  max-width: 300px;
+  line-height: 1.5;
+}
+
+/* --- Loading --- */
+.lg-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 900px) {
+  .lg-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .lg-levels {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 600px) {
+  .lg-col-header {
+    display: none;
+  }
+
+  .lg-entry {
+    grid-template-columns: 1fr;
+    gap: 3px;
+    padding: 8px 12px;
+  }
+
+  .lg-time {
+    font-size: 0.62rem;
+  }
+
+  .lg-data {
+    grid-column: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lg-live-badge.live .lg-live-dot,
+  .lg-new-logs {
+    animation: none;
+  }
+}

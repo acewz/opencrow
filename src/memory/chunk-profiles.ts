@@ -1,0 +1,27 @@
+import type { MemorySourceKind } from "./types";
+
+interface ChunkProfile {
+  readonly maxTokens: number;
+  readonly overlap: number;
+}
+
+const profiles: Record<MemorySourceKind, ChunkProfile> = {
+  tweet: { maxTokens: 150, overlap: 0 },
+  product: { maxTokens: 200, overlap: 0 },
+  hf_model: { maxTokens: 200, overlap: 0 },
+  github_repo: { maxTokens: 200, overlap: 0 },
+  arxiv_paper: { maxTokens: 400, overlap: 80 },
+  scholar_paper: { maxTokens: 400, overlap: 80 },
+  conversation: { maxTokens: 400, overlap: 80 },
+  reddit_post: { maxTokens: 400, overlap: 80 },
+  article: { maxTokens: 500, overlap: 100 },
+  story: { maxTokens: 500, overlap: 100 },
+  note: { maxTokens: 500, overlap: 100 },
+  document: { maxTokens: 500, overlap: 100 },
+  observation: { maxTokens: 300, overlap: 50 },
+  idea: { maxTokens: 400, overlap: 80 },
+};
+
+export function getChunkProfile(kind: MemorySourceKind): ChunkProfile {
+  return profiles[kind];
+}
