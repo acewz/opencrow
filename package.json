@@ -1,9 +1,19 @@
 {
   "name": "opencrow",
   "version": "1.0.0",
+  "description": "Self-hosted multi-agent AI platform with 90+ tools, vector memory, and real-time market streaming",
   "module": "src/index.ts",
   "type": "module",
-  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gokhantos/opencrow.git"
+  },
+  "homepage": "https://github.com/gokhantos/opencrow",
+  "keywords": ["ai", "agent", "multi-agent", "telegram", "bun", "claude", "orchestration", "self-hosted"],
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "bin": {
     "opencrow": "bin/opencrow"
   },
