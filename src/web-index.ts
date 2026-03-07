@@ -8,6 +8,9 @@ import { createEmbeddingProvider } from "./memory/embeddings";
 import { createQdrantClient } from "./memory/qdrant";
 import { createCoreClient, type CoreClient } from "./web/core-client";
 import { createWebApp } from "./web/app";
+import { createBookmarkProcessor } from "./sources/x/bookmarks/processor";
+import { createAutolikeProcessor } from "./sources/x/interactions/processor";
+import { createAutofollowProcessor } from "./sources/x/follow/processor";
 import { createProcessSupervisor } from "./process/supervisor";
 
 import {
@@ -124,6 +127,12 @@ async function main(): Promise<void> {
     };
   }
 
+  // Create X processors for direct use (not started — no timer ticks).
+  // shareNow/runNow work standalone via DB, bypassing coreClient→internal API.
+  const bookmarkProcessor = createBookmarkProcessor();
+  const autolikeProcessor = createAutolikeProcessor();
+  const autofollowProcessor = createAutofollowProcessor();
+
   const webApp = createWebApp({
     config: mergedConfig,
     channels: new Map(),
@@ -132,6 +141,9 @@ async function main(): Promise<void> {
     cronStore,
     memoryManager,
     coreClient,
+    bookmarkProcessor,
+    autolikeProcessor,
+    autofollowProcessor,
     marketSymbols: config.market.symbols,
     marketTypes: config.market.marketTypes,
   });
