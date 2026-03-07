@@ -114,7 +114,7 @@ export async function markSignalsConsumed(
   await db`
     UPDATE research_signals
     SET consumed = true
-    WHERE id = ANY(${ids as string[]})
+    WHERE id IN ${db(ids as string[])}
   `;
 }
 
