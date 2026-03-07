@@ -40,17 +40,29 @@ const PLAY_CATEGORIES: ReadonlyArray<{
 ];
 
 // Local interfaces for google-play-scraper response shapes
+// gplay.list() returns summary (short), gplay.app() returns full description
 interface GPlayApp {
   readonly appId: string;
   readonly title: string;
   readonly developer: string;
   readonly icon: string;
   readonly url: string;
+  readonly summary: string;
   readonly description: string;
   readonly price: number;
+  readonly free: boolean;
   readonly scoreText: string | null;
+  readonly score: number;
   readonly installs: string;
   readonly genre: string;
+}
+
+interface GPlayAppDetail {
+  readonly appId: string;
+  readonly description: string;
+  readonly installs: string;
+  readonly genre: string;
+  readonly score: number;
 }
 
 interface GPlayReview {
@@ -105,9 +117,9 @@ function mapAppToRanking(
     list_type: listType,
     icon_url: app.icon ?? "",
     store_url: app.url ?? "",
-    description: app.description ?? "",
-    price: app.price === 0 ? "Free" : `$${app.price}`,
-    rating: parseRating(app.scoreText),
+    description: app.description ?? app.summary ?? "",
+    price: app.free || app.price === 0 ? "Free" : `$${app.price}`,
+    rating: app.score ?? parseRating(app.scoreText),
     installs: app.installs ?? "",
     updated_at: now,
     indexed_at: null,
@@ -180,6 +192,20 @@ export function createPlayStoreScraper(config?: {
       const msg = err instanceof Error ? err.message : String(err);
       log.warn("Failed to fetch Play Store list", { listType, error: msg });
       return [];
+    }
+  }
+
+  async function fetchAppDetail(appId: string): Promise<GPlayAppDetail | null> {
+    try {
+      const gplay = ((await import("google-play-scraper")) as unknown as { default: {
+        app: (opts: Record<string, unknown>) => Promise<GPlayAppDetail>;
+      } }).default;
+
+      return await gplay.app({ appId, country: "us", lang: "en" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log.warn("Failed to fetch app detail", { appId, error: msg });
+      return null;
     }
   }
 
@@ -332,14 +358,35 @@ export function createPlayStoreScraper(config?: {
       }
 
       let totalReviews = 0;
+      let enrichedCount = 0;
 
-      log.info("Fetching Play Store reviews", { appsToReview: appsToReview.length });
+      log.info("Fetching Play Store details & reviews", { appsToReview: appsToReview.length });
 
       for (const app of appsToReview) {
         if (!app.id) continue;
 
+        // Fetch full app details (description, installs, genre, rating)
         await delay(REQUEST_DELAY_MS);
+        try {
+          const detail = await fetchAppDetail(app.id);
+          if (detail) {
+            const enriched: PlayRankingRow = {
+              ...app,
+              description: detail.description?.slice(0, 2000) ?? app.description,
+              installs: detail.installs ?? app.installs,
+              category: detail.genre ?? app.category,
+              rating: detail.score ?? app.rating,
+            };
+            await upsertRankings([enriched]);
+            enrichedCount++;
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.warn("Play Store detail fetch failed", { appId: app.id, error: msg });
+        }
 
+        // Fetch reviews
+        await delay(REQUEST_DELAY_MS);
         try {
           const reviews = await fetchReviewsForApp(app.id, app.name);
           if (reviews.length > 0) {
@@ -352,8 +399,9 @@ export function createPlayStoreScraper(config?: {
         }
       }
 
-      log.info("Upserted Play Store reviews", {
+      log.info("Upserted Play Store reviews & details", {
         appsChecked: appsToReview.length,
+        enriched: enrichedCount,
         reviews: totalReviews,
       });
 
