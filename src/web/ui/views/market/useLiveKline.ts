@@ -45,8 +45,7 @@ interface WsMessage {
 function buildWsUrl(): string {
   const { protocol, host } = window.location;
   const wsProtocol = protocol === "https:" ? "wss:" : "ws:";
-  const token = getToken() ?? "";
-  return `${wsProtocol}//${host}/ws/market?token=${encodeURIComponent(token)}`;
+  return `${wsProtocol}//${host}/ws/market`;
 }
 
 /**
@@ -92,7 +91,10 @@ export function useLiveKline(
     function connect(): void {
       if (cancelled) return;
 
-      const ws = new WebSocket(buildWsUrl());
+      const token = getToken();
+      const ws = token
+        ? new WebSocket(buildWsUrl(), token)
+        : new WebSocket(buildWsUrl());
       wsRef.current = ws;
 
       ws.onopen = () => {
