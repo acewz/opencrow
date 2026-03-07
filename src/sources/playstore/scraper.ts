@@ -97,14 +97,14 @@ function mapAppToRanking(
 ): PlayRankingRow {
   const now = Math.floor(Date.now() / 1000);
   return {
-    id: app.appId,
-    name: app.title,
-    developer: app.developer,
-    category: app.genre,
+    id: app.appId ?? "",
+    name: app.title ?? "",
+    developer: app.developer ?? "",
+    category: app.genre ?? "",
     rank,
     list_type: listType,
-    icon_url: app.icon,
-    store_url: app.url,
+    icon_url: app.icon ?? "",
+    store_url: app.url ?? "",
     description: app.description ?? "",
     price: app.price === 0 ? "Free" : `$${app.price}`,
     rating: parseRating(app.scoreText),
