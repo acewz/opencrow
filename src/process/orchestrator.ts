@@ -58,9 +58,9 @@ export interface Orchestrator {
   start(): Promise<void>;
   stop(): Promise<void>;
   getState(): readonly OrchestratorProcessView[];
-  stopProcess(name: string): void;
+  stopProcess(name: string): Promise<void>;
   startProcess(name: string): void;
-  restartProcess(name: string): void;
+  restartProcess(name: string): Promise<void>;
   refreshManifest(): Promise<void>;
   updateConfig(config: OpenCrowConfig): void;
 }
@@ -476,7 +476,7 @@ export function createOrchestrator(
       return Array.from(children.values()).map(getView);
     },
 
-    stopProcess(name: string): void {
+    async stopProcess(name: string): Promise<void> {
       const state = children.get(name);
       if (!state) {
         log.warn("stopProcess: unknown process", { name });
@@ -490,9 +490,7 @@ export function createOrchestrator(
       }
 
       if (state.proc) {
-        killChild(state).catch((err) => {
-          log.error("Failed to stop process", { name, error: err });
-        });
+        await killChild(state);
       }
       state.status = "stopped";
     },
@@ -514,7 +512,7 @@ export function createOrchestrator(
       }
     },
 
-    restartProcess(name: string): void {
+    async restartProcess(name: string): Promise<void> {
       const state = children.get(name);
       if (!state) {
         log.warn("restartProcess: unknown process", { name });
@@ -527,10 +525,9 @@ export function createOrchestrator(
       state.backoffMs = BACKOFF_INITIAL_MS;
 
       if (state.proc) {
-        killChild(state).then(() => {
-          state.stoppedByUser = false;
-          if (running) spawnChild(state);
-        });
+        await killChild(state);
+        state.stoppedByUser = false;
+        if (running) spawnChild(state);
       } else {
         spawnChild(state);
       }

@@ -657,7 +657,7 @@ export function createInternalApi(deps: InternalApiDeps): Hono {
     const name = c.req.param("name");
     try {
       if (deps.orchestrator) {
-        deps.orchestrator.restartProcess(name);
+        await deps.orchestrator.restartProcess(name);
         return c.json({ ok: true });
       }
       const commandId = await sendCommand(name as ProcessName, "restart");
@@ -676,7 +676,7 @@ export function createInternalApi(deps: InternalApiDeps): Hono {
     const name = c.req.param("name");
     try {
       if (deps.orchestrator) {
-        deps.orchestrator.stopProcess(name);
+        await deps.orchestrator.stopProcess(name);
         return c.json({ ok: true });
       }
       const commandId = await sendCommand(name as ProcessName, "stop");
