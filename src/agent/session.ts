@@ -11,6 +11,7 @@ import { createLogger } from "../logger";
 const log = createLogger("session");
 
 const MAX_HISTORY_MESSAGES = 100;
+const SESSION_STALE_SECONDS = 7 * 24 * 3600; // 7 days
 
 export async function getSessionHistory(
   channel: string,
@@ -20,6 +21,24 @@ export async function getSessionHistory(
   await getOrCreateSession(channel, chatId);
 
   const stored = await getMessagesByChat(channel, chatId, limit);
+
+  // If the most recent message is older than 7 days, start fresh
+  if (stored.length > 0) {
+    const lastMessageAt = stored[stored.length - 1]!.timestamp;
+    const now = Math.floor(Date.now() / 1000);
+    const age = now - lastMessageAt;
+    if (age > SESSION_STALE_SECONDS) {
+      log.info("Clearing stale session", {
+        channel,
+        chatId,
+        ageDays: Math.floor(age / 86400),
+        messageCount: stored.length,
+      });
+      await clearChatMessages(channel, chatId);
+      await clearSummaries(channel, chatId);
+      return [];
+    }
+  }
 
   const history: ConversationMessage[] = stored.map((msg) => ({
     role: msg.role,
