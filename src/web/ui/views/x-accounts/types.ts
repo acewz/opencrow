@@ -110,6 +110,8 @@ export interface XAccount {
   updated_at: number;
 }
 
+export type FeatureTab = 'overview' | 'auto-likes' | 'auto-follow' | 'bookmarks' | 'timeline' | 'settings';
+
 export interface AccountsResponse {
   success: boolean;
   data: XAccount[];

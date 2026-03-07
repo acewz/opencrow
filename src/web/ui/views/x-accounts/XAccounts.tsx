@@ -1,34 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "../../api";
-import { Button, LoadingState, EmptyState, PageHeader } from "../../components";
-import BookmarkSharing from "../BookmarkSharing";
-import AutoLikes from "../AutoLikes";
-import AutoFollow from "../AutoFollow";
-import TimelineScrape from "../TimelineScrape";
-import type {
-  XAccount,
-  AccountsResponse,
-  AccountResponse,
-  MutationResponse,
-} from "./types";
-import { AccountCreateForm, AccountEditForm, AccountCard } from "./AccountCard";
-import { CapabilitiesPanel } from "./CapabilitiesPanel";
+import { PageHeader, LoadingState, EmptyState } from "../../components";
+import { AccountSwitcher } from "./AccountSwitcher";
+import { AccountDashboard } from "./AccountDashboard";
+import { AddAccountModal } from "./AddAccountModal";
+import type { XAccount, AccountsResponse, AccountResponse, MutationResponse } from "./types";
 
 export default function XAccounts() {
   const [accounts, setAccounts] = useState<XAccount[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreateForm, setShowCreateForm] = useState(false);
-  const [editingAccount, setEditingAccount] = useState<XAccount | null>(null);
-  const [configuringAccount, setConfiguringAccount] = useState<XAccount | null>(
-    null,
-  );
-  const [bookmarkAccount, setBookmarkAccount] = useState<XAccount | null>(null);
-  const [autolikeAccount, setAutolikeAccount] = useState<XAccount | null>(null);
-  const [autofollowAccount, setAutofollowAccount] = useState<XAccount | null>(
-    null,
-  );
-  const [timelineAccount, setTimelineAccount] = useState<XAccount | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
 
   async function loadAccounts() {
@@ -36,11 +18,14 @@ export default function XAccounts() {
       const res = await apiFetch<AccountsResponse>("/api/x/accounts");
       if (res.success) {
         setAccounts(res.data);
-      } else {
-        setError("Failed to load accounts");
+        setSelectedAccountId((prev) => {
+          const stillExists = res.data.some((a) => a.id === prev);
+          if (stillExists) return prev;
+          return res.data[0]?.id ?? null;
+        });
       }
     } catch {
-      setError("Failed to load accounts");
+      // leave existing state on error
     } finally {
       setLoading(false);
     }
@@ -50,13 +35,19 @@ export default function XAccounts() {
     loadAccounts();
   }, []);
 
+  // Auto-select first account when accounts load
+  useEffect(() => {
+    if (selectedAccountId === null && accounts.length > 0) {
+      setSelectedAccountId(accounts[0]?.id ?? null);
+    }
+  }, [accounts, selectedAccountId]);
+
   async function handleVerify(id: string) {
     setVerifyingId(id);
     try {
-      const res = await apiFetch<AccountResponse>(
-        `/api/x/accounts/${id}/verify`,
-        { method: "POST" },
-      );
+      const res = await apiFetch<AccountResponse>(`/api/x/accounts/${id}/verify`, {
+        method: "POST",
+      });
       if (res.success) {
         setAccounts((prev) => prev.map((a) => (a.id === id ? res.data : a)));
       }
@@ -72,187 +63,58 @@ export default function XAccounts() {
       await apiFetch<MutationResponse>(`/api/x/accounts/${id}`, {
         method: "DELETE",
       });
-      await loadAccounts();
     } catch {
+      // fall through to reload
+    } finally {
+      setSelectedAccountId((prev) => {
+        if (prev !== id) return prev;
+        const remaining = accounts.filter((a) => a.id !== id);
+        return remaining[0]?.id ?? null;
+      });
       await loadAccounts();
     }
   }
+
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
 
   if (loading) {
     return <LoadingState message="Loading X accounts..." />;
   }
 
-  if (error) {
-    return <p className="text-danger">{error}</p>;
-  }
-
   return (
-    <div>
+    <div className="flex flex-col">
       <PageHeader
-        title="X Accounts"
-        subtitle={`${accounts.length} accounts configured`}
-        actions={
-          <Button
-            size="sm"
-            onClick={() => {
-              setShowCreateForm(true);
-              setEditingAccount(null);
-            }}
-          >
-            Add Account
-          </Button>
-        }
+        title="X / Twitter"
+        subtitle={`${accounts.length} account${accounts.length === 1 ? "" : "s"} configured`}
       />
 
-      {showCreateForm && (
-        <AccountCreateForm
-          onCreated={() => {
-            setShowCreateForm(false);
-            loadAccounts();
-          }}
-          onCancel={() => setShowCreateForm(false)}
-        />
-      )}
+      <AccountSwitcher
+        accounts={accounts}
+        selectedId={selectedAccountId}
+        onSelect={setSelectedAccountId}
+        onAddAccount={() => setShowAddModal(true)}
+      />
 
-      {editingAccount && (
-        <AccountEditForm
-          account={editingAccount}
-          onSaved={() => {
-            setEditingAccount(null);
-            loadAccounts();
-          }}
-          onCancel={() => setEditingAccount(null)}
+      {selectedAccount ? (
+        <AccountDashboard
+          account={selectedAccount}
+          onVerify={() => handleVerify(selectedAccount.id)}
+          onUpdate={loadAccounts}
+          onDelete={() => handleDelete(selectedAccount.id)}
+          verifying={verifyingId === selectedAccount.id}
         />
-      )}
-
-      {configuringAccount && (
-        <CapabilitiesPanel
-          account={configuringAccount}
-          onSaved={() => {
-            setConfiguringAccount(null);
-            loadAccounts();
-          }}
-          onCancel={() => setConfiguringAccount(null)}
-        />
-      )}
-
-      {bookmarkAccount && (
-        <BookmarkSharing
-          accountId={bookmarkAccount.id}
-          accountLabel={
-            bookmarkAccount.username
-              ? `@${bookmarkAccount.username}`
-              : bookmarkAccount.label
-          }
-          onClose={() => setBookmarkAccount(null)}
-        />
-      )}
-
-      {autolikeAccount && (
-        <AutoLikes
-          accountId={autolikeAccount.id}
-          accountLabel={
-            autolikeAccount.username
-              ? `@${autolikeAccount.username}`
-              : autolikeAccount.label
-          }
-          onClose={() => setAutolikeAccount(null)}
-        />
-      )}
-
-      {autofollowAccount && (
-        <AutoFollow
-          accountId={autofollowAccount.id}
-          accountLabel={
-            autofollowAccount.username
-              ? `@${autofollowAccount.username}`
-              : autofollowAccount.label
-          }
-          onClose={() => setAutofollowAccount(null)}
-        />
-      )}
-
-      {timelineAccount && (
-        <TimelineScrape
-          accountId={timelineAccount.id}
-          accountLabel={
-            timelineAccount.username
-              ? `@${timelineAccount.username}`
-              : timelineAccount.label
-          }
-          onClose={() => setTimelineAccount(null)}
-        />
-      )}
-
-      {accounts.length === 0 ? (
-        <EmptyState description="No X accounts configured. Add your first account to get started." />
       ) : (
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(380px,1fr))] gap-5 max-md:grid-cols-1">
-          {accounts.map((account) => (
-            <AccountCard
-              key={account.id}
-              account={account}
-              verifying={verifyingId === account.id}
-              onVerify={() => handleVerify(account.id)}
-              onEdit={() => {
-                setEditingAccount(account);
-                setShowCreateForm(false);
-                setConfiguringAccount(null);
-                setBookmarkAccount(null);
-                setAutolikeAccount(null);
-                setAutofollowAccount(null);
-                setTimelineAccount(null);
-              }}
-              onBookmarks={() => {
-                setBookmarkAccount(account);
-                setAutolikeAccount(null);
-                setAutofollowAccount(null);
-                setTimelineAccount(null);
-                setShowCreateForm(false);
-                setEditingAccount(null);
-                setConfiguringAccount(null);
-              }}
-              onAutoLikes={() => {
-                setAutolikeAccount(account);
-                setAutofollowAccount(null);
-                setBookmarkAccount(null);
-                setTimelineAccount(null);
-                setShowCreateForm(false);
-                setEditingAccount(null);
-                setConfiguringAccount(null);
-              }}
-              onAutoFollow={() => {
-                setAutofollowAccount(account);
-                setAutolikeAccount(null);
-                setBookmarkAccount(null);
-                setTimelineAccount(null);
-                setShowCreateForm(false);
-                setEditingAccount(null);
-                setConfiguringAccount(null);
-              }}
-              onTimeline={() => {
-                setTimelineAccount(account);
-                setAutofollowAccount(null);
-                setAutolikeAccount(null);
-                setBookmarkAccount(null);
-                setShowCreateForm(false);
-                setEditingAccount(null);
-                setConfiguringAccount(null);
-              }}
-              onConfigure={() => {
-                setConfiguringAccount(account);
-                setShowCreateForm(false);
-                setEditingAccount(null);
-                setBookmarkAccount(null);
-                setAutolikeAccount(null);
-                setAutofollowAccount(null);
-                setTimelineAccount(null);
-              }}
-              onDelete={() => handleDelete(account.id)}
-            />
-          ))}
-        </div>
+        <EmptyState
+          title="No X accounts"
+          description="Add your first X account to get started."
+        />
       )}
+
+      <AddAccountModal
+        open={showAddModal}
+        onClose={() => setShowAddModal(false)}
+        onCreated={loadAccounts}
+      />
     </div>
   );
 }

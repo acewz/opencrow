@@ -18,16 +18,20 @@ import {
   PAGE_PRESETS,
 } from "./types";
 
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
+
 function ScheduleChips({
   presets,
   value,
   onChange,
   label,
 }: {
-  presets: readonly { label: string; cron: string | null }[];
-  value: string | null;
-  onChange: (cron: string | null) => void;
-  label: string;
+  readonly presets: ReadonlyArray<{ readonly label: string; readonly cron: string | null }>;
+  readonly value: string | null;
+  readonly onChange: (cron: string | null) => void;
+  readonly label: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -38,6 +42,7 @@ function ScheduleChips({
         {presets.map((p) => (
           <button
             key={p.label}
+            type="button"
             className={cn(
               "py-2 px-4 rounded-full border font-mono text-sm font-medium cursor-pointer transition-colors",
               value === p.cron
@@ -59,9 +64,9 @@ function PageChips({
   onChange,
   label,
 }: {
-  value: number;
-  onChange: (n: number) => void;
-  label: string;
+  readonly value: number;
+  readonly onChange: (n: number) => void;
+  readonly label: string;
 }) {
   return (
     <div className="flex flex-col gap-2">
@@ -72,6 +77,7 @@ function PageChips({
         {PAGE_PRESETS.map((n) => (
           <button
             key={n}
+            type="button"
             className={cn(
               "py-1.5 px-4 rounded-full border font-mono text-xs font-medium cursor-pointer transition-colors",
               value === n
@@ -94,10 +100,10 @@ function LimitSlider({
   label,
   max,
 }: {
-  value: number;
-  onChange: (n: number) => void;
-  label: string;
-  max: number;
+  readonly value: number;
+  readonly onChange: (n: number) => void;
+  readonly label: string;
+  readonly max: number;
 }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1">
@@ -129,11 +135,11 @@ function CapSection({
   onToggle,
   children,
 }: {
-  icon: string;
-  label: string;
-  enabled: boolean;
-  onToggle: (v: boolean) => void;
-  children: React.ReactNode;
+  readonly icon: string;
+  readonly label: string;
+  readonly enabled: boolean;
+  readonly onToggle: (v: boolean) => void;
+  readonly children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(enabled);
 
@@ -155,7 +161,7 @@ function CapSection({
               open && "rotate-90",
             )}
           >
-            {"\u25B6"}
+            {"▶"}
           </span>
           <span className="text-base w-6 text-center">{icon}</span>
           <span className="font-heading text-sm font-semibold text-strong tracking-tight">
@@ -179,15 +185,16 @@ function CapSection({
   );
 }
 
-export function CapabilitiesPanel({
-  account,
-  onSaved,
-  onCancel,
-}: {
-  account: XAccount;
-  onSaved: () => void;
-  onCancel: () => void;
-}) {
+// ---------------------------------------------------------------------------
+// Main component
+// ---------------------------------------------------------------------------
+
+interface CapabilitiesSectionProps {
+  readonly account: XAccount;
+  readonly onSaved: () => void;
+}
+
+export function CapabilitiesSection({ account, onSaved }: CapabilitiesSectionProps) {
   const merged = {
     timeline: {
       ...DEFAULT_CAPABILITIES.timeline,
@@ -209,12 +216,8 @@ export function CapabilitiesPanel({
 
   const [timeline, setTimeline] = useState<TimelineCap>(merged.timeline);
   const [posting, setPosting] = useState<PostingCap>(merged.posting);
-  const [interactions, setInteractions] = useState<InteractionsCap>(
-    merged.interactions,
-  );
-  const [notifications, setNotifications] = useState<NotificationsCap>(
-    merged.notifications,
-  );
+  const [interactions, setInteractions] = useState<InteractionsCap>(merged.interactions);
+  const [notifications, setNotifications] = useState<NotificationsCap>(merged.notifications);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
@@ -222,18 +225,10 @@ export function CapabilitiesPanel({
     setSaving(true);
     setError("");
     try {
-      await apiFetch<AccountResponse>(
-        `/api/x/accounts/${account.id}/capabilities`,
-        {
-          method: "PUT",
-          body: JSON.stringify({
-            timeline,
-            posting,
-            interactions,
-            notifications,
-          }),
-        },
-      );
+      await apiFetch<AccountResponse>(`/api/x/accounts/${account.id}/capabilities`, {
+        method: "PUT",
+        body: JSON.stringify({ timeline, posting, interactions, notifications }),
+      });
       onSaved();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
@@ -243,34 +238,20 @@ export function CapabilitiesPanel({
     }
   }
 
-  const accountLabel = account.username
-    ? `@${account.username}`
-    : account.label;
-
   return (
-    <div className="bg-bg-1 border border-border rounded-lg p-6 mb-6">
-      <div className="flex items-center justify-between mb-6 pb-3 border-b border-border">
-        <div className="flex items-center gap-3">
-          <span className="font-heading text-sm font-bold uppercase tracking-wide text-accent">
-            Configure
-          </span>
-          <span className="font-mono text-xs text-faint">
-            {accountLabel}
-          </span>
-        </div>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
-          Close
-        </Button>
+    <div className="bg-bg-1 rounded-lg p-4 border border-border mb-6">
+      <div className="font-heading text-xs font-bold uppercase tracking-widest text-faint mb-4">
+        Capabilities
       </div>
 
       {error && (
-        <div className="text-danger text-sm font-mono px-4 py-2.5 bg-danger-subtle border border-border rounded-md mb-5 break-words">
+        <div className="text-danger text-sm font-mono px-4 py-2.5 bg-danger-subtle border border-border rounded-md mb-4 break-words">
           {error}
         </div>
       )}
 
       <CapSection
-        icon={"\uD83D\uDCF0"}
+        icon={"📰"}
         label="Timeline Scraping"
         enabled={timeline.enabled}
         onToggle={(v) => setTimeline({ ...timeline, enabled: v })}
@@ -310,7 +291,7 @@ export function CapabilitiesPanel({
       </CapSection>
 
       <CapSection
-        icon={"\u270D\uFE0F"}
+        icon={"✍️"}
         label="Posting"
         enabled={posting.enabled}
         onToggle={(v) => setPosting({ ...posting, enabled: v })}
@@ -348,7 +329,7 @@ export function CapabilitiesPanel({
       </CapSection>
 
       <CapSection
-        icon={"\uD83E\uDD1D"}
+        icon={"🤝"}
         label="Interactions"
         enabled={interactions.enabled}
         onToggle={(v) => setInteractions({ ...interactions, enabled: v })}
@@ -362,9 +343,7 @@ export function CapabilitiesPanel({
           <Toggle
             label="Auto Retweet"
             checked={interactions.auto_retweet}
-            onChange={(v) =>
-              setInteractions({ ...interactions, auto_retweet: v })
-            }
+            onChange={(v) => setInteractions({ ...interactions, auto_retweet: v })}
           />
           <Toggle
             label="Auto Follow Back"
@@ -378,9 +357,7 @@ export function CapabilitiesPanel({
           label="Daily likes"
           value={interactions.daily_like_limit}
           max={500}
-          onChange={(n) =>
-            setInteractions({ ...interactions, daily_like_limit: n })
-          }
+          onChange={(n) => setInteractions({ ...interactions, daily_like_limit: n })}
         />
         <LimitSlider
           label="Daily retweets"
@@ -393,7 +370,7 @@ export function CapabilitiesPanel({
       </CapSection>
 
       <CapSection
-        icon={"\uD83D\uDD14"}
+        icon={"🔔"}
         label="Notifications"
         enabled={notifications.enabled}
         onToggle={(v) => setNotifications({ ...notifications, enabled: v })}
@@ -414,32 +391,21 @@ export function CapabilitiesPanel({
             Type
           </span>
           <div className="flex gap-1.5 flex-wrap">
-            <button
-              className={cn(
-                "py-2 px-4 rounded-full border font-mono text-sm font-medium cursor-pointer transition-colors",
-                notifications.type === "all"
-                  ? "bg-accent-subtle border-accent text-accent font-semibold"
-                  : "bg-bg-2 border-border text-muted hover:bg-accent-subtle hover:border-accent hover:text-accent",
-              )}
-              onClick={() =>
-                setNotifications({ ...notifications, type: "all" })
-              }
-            >
-              All
-            </button>
-            <button
-              className={cn(
-                "py-2 px-4 rounded-full border font-mono text-sm font-medium cursor-pointer transition-colors",
-                notifications.type === "mentions"
-                  ? "bg-accent-subtle border-accent text-accent font-semibold"
-                  : "bg-bg-2 border-border text-muted hover:bg-accent-subtle hover:border-accent hover:text-accent",
-              )}
-              onClick={() =>
-                setNotifications({ ...notifications, type: "mentions" })
-              }
-            >
-              Mentions
-            </button>
+            {(["all", "mentions"] as const).map((type) => (
+              <button
+                key={type}
+                type="button"
+                className={cn(
+                  "py-2 px-4 rounded-full border font-mono text-sm font-medium cursor-pointer transition-colors",
+                  notifications.type === type
+                    ? "bg-accent-subtle border-accent text-accent font-semibold"
+                    : "bg-bg-2 border-border text-muted hover:bg-accent-subtle hover:border-accent hover:text-accent",
+                )}
+                onClick={() => setNotifications({ ...notifications, type })}
+              >
+                {type === "all" ? "All" : "Mentions"}
+              </button>
+            ))}
           </div>
         </div>
         <PageChips
@@ -451,7 +417,7 @@ export function CapabilitiesPanel({
 
       <div className="flex gap-3 mt-5 pt-4 border-t border-border">
         <Button size="sm" onClick={handleSave} loading={saving}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving..." : "Save Capabilities"}
         </Button>
       </div>
     </div>
