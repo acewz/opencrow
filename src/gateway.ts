@@ -200,7 +200,15 @@ export function createGateway(config: OpenCrowConfig): Gateway {
       });
 
       // Start all subsystems with isolated error handling
-      const instances = await subsystemRegistry!.startAll();
+      const { instances, failed, started } = await subsystemRegistry!.startAll();
+
+      if (failed.length > 0) {
+        log.warn("Some subsystems failed to start", {
+          started: started.length,
+          failed: failed.length,
+          failedNames: failed,
+        });
+      }
 
       // Start internal API
       const internalApp = createInternalApi({

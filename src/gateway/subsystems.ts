@@ -70,8 +70,14 @@ export interface SubsystemInstances {
   readonly dexScreenerProcessor: DexScreenerProcessor | undefined;
 }
 
+export interface SubsystemStartResult {
+  readonly instances: SubsystemInstances;
+  readonly failed: readonly string[];
+  readonly started: readonly string[];
+}
+
 export interface SubsystemRegistry {
-  startAll(): Promise<SubsystemInstances>;
+  startAll(): Promise<SubsystemStartResult>;
   stopAll(): Promise<void>;
 }
 
@@ -99,141 +105,142 @@ export function createSubsystemRegistry(opts: {
   let dexScreenerProcessor: DexScreenerProcessor | undefined;
 
   return {
-    async startAll(): Promise<SubsystemInstances> {
-      try {
-        if (config.market !== undefined) {
-          liveHub = createLiveKlineHub();
-          marketPipeline = createMarketPipeline(config.market, liveHub);
-          await marketPipeline.start();
-          log.info("Market pipeline started", {
-            marketTypes: config.market.marketTypes,
-            symbols: config.market.symbols,
+    async startAll(): Promise<SubsystemStartResult> {
+      const failed: string[] = [];
+      const started: string[] = [];
+
+      async function tryStart(
+        name: string,
+        fn: () => void | Promise<void>,
+      ): Promise<boolean> {
+        try {
+          await fn();
+          started.push(name);
+          log.info(`${name} started`);
+          return true;
+        } catch (err) {
+          failed.push(name);
+          log.error(`${name} failed to start`, {
+            error: err instanceof Error ? err.message : String(err),
           });
+          return false;
         }
-      } catch (err) {
-        log.error("Market pipeline failed to start (non-fatal)", { error: err });
       }
 
-      try {
+      if (config.market !== undefined) {
+        await tryStart("market-pipeline", async () => {
+          liveHub = createLiveKlineHub();
+          marketPipeline = createMarketPipeline(config.market!, liveHub);
+          await marketPipeline.start();
+        });
+      }
+
+      await tryStart("bookmark-processor", () => {
         bookmarkProcessor = createBookmarkProcessor();
         bookmarkProcessor.start();
-        log.info("Bookmark processor started");
-      } catch (err) {
-        log.error("Bookmark processor failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("autolike-processor", () => {
         autolikeProcessor = createAutolikeProcessor();
         autolikeProcessor.start();
-        log.info("Autolike processor started");
-      } catch (err) {
-        log.error("Autolike processor failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("autofollow-processor", () => {
         autofollowProcessor = createAutofollowProcessor();
         autofollowProcessor.start();
-        log.info("Autofollow processor started");
-      } catch (err) {
-        log.error("Autofollow processor failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("timeline-processor", () => {
         timelineScrapeProcessor = createTimelineScrapeProcessor({ memoryManager: mm });
         timelineScrapeProcessor.start();
-        log.info("Timeline scrape processor started");
-      } catch (err) {
-        log.error("Timeline processor failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("ph-scraper", () => {
         phScraper = createPHScraper({ memoryManager: mm });
         phScraper.start();
-        log.info("PH scraper started");
-      } catch (err) {
-        log.error("PH scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("hn-scraper", () => {
         hnScraper = createHNScraper({ memoryManager: mm });
         hnScraper.start();
-        log.info("HN scraper started");
-      } catch (err) {
-        log.error("HN scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("hf-scraper", () => {
         hfScraper = createHFScraper({ memoryManager: mm });
         hfScraper.start();
-        log.info("HF scraper started");
-      } catch (err) {
-        log.error("HF scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("reddit-scraper", () => {
         redditScraper = createRedditScraper({ memoryManager: mm });
         redditScraper.start();
-        log.info("Reddit scraper started");
-      } catch (err) {
-        log.error("Reddit scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("github-scraper", () => {
         githubScraper = createGithubScraper({ memoryManager: mm });
         githubScraper.start();
-        log.info("GitHub scraper started");
-      } catch (err) {
-        log.error("GitHub scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("arxiv-scraper", () => {
         arxivScraper = createArxivScraper({ memoryManager: mm });
         arxivScraper.start();
-        log.info("arXiv scraper started");
-      } catch (err) {
-        log.error("arXiv scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("scholar-scraper", () => {
         scholarScraper = createScholarScraper({ memoryManager: mm });
         scholarScraper.start();
-        log.info("Scholar scraper started");
-      } catch (err) {
-        log.error("Scholar scraper failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("news-processor", () => {
         newsProcessor = createNewsProcessor({ memoryManager: mm });
         newsProcessor.start();
-        log.info("News processor started");
-      } catch (err) {
-        log.error("News processor failed to start (non-fatal)", { error: err });
-      }
+      });
 
-      try {
+      await tryStart("dexscreener-processor", () => {
         dexScreenerProcessor = createDexScreenerProcessor({ memoryManager: mm });
         dexScreenerProcessor.start();
-        log.info("DexScreener processor started");
-      } catch (err) {
-        log.error("DexScreener processor failed to start (non-fatal)", { error: err });
+      });
+
+      // Log aggregate result
+      if (failed.length > 0) {
+        log.error("Subsystem startup completed with failures", {
+          started: started.length,
+          failed: failed.length,
+          failedNames: failed,
+        });
+      } else {
+        log.info("All subsystems started successfully", {
+          count: started.length,
+        });
+      }
+
+      // If ALL subsystems failed, the process is useless — crash hard
+      const total = started.length + failed.length;
+      if (total > 0 && started.length === 0) {
+        throw new Error(
+          `All ${failed.length} subsystems failed to start: ${failed.join(", ")}`,
+        );
       }
 
       return {
-        liveHub,
-        marketPipeline,
-        bookmarkProcessor,
-        autolikeProcessor,
-        autofollowProcessor,
-        timelineScrapeProcessor,
-        phScraper,
-        hnScraper,
-        hfScraper,
-        redditScraper,
-        githubScraper,
-        arxivScraper,
-        scholarScraper,
-        newsProcessor,
-        dexScreenerProcessor,
+        instances: {
+          liveHub,
+          marketPipeline,
+          bookmarkProcessor,
+          autolikeProcessor,
+          autofollowProcessor,
+          timelineScrapeProcessor,
+          phScraper,
+          hnScraper,
+          hfScraper,
+          redditScraper,
+          githubScraper,
+          arxivScraper,
+          scholarScraper,
+          newsProcessor,
+          dexScreenerProcessor,
+        },
+        failed,
+        started,
       };
     },
 
