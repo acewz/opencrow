@@ -1746,4 +1746,11 @@ export const MIGRATIONS = [
     first_seen_at INTEGER NOT NULL,
     indexed_at INTEGER
   )`,
+
+  // Expand memory_sources kind check to include app_review, app_ranking, trend, defi_protocol, dex_token
+  `DO $$ BEGIN
+    ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
+    ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check
+      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','hf_model','github_repo','arxiv_paper','scholar_paper','observation','idea','app_review','app_ranking','trend','defi_protocol','dex_token'));
+  END $$`,
 ];
