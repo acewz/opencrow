@@ -9,6 +9,8 @@ import { createLogger } from "../../logger";
 const log = createLogger("whatsapp-handler");
 
 const STATUS_BROADCAST = "status@broadcast";
+const MAX_DEDUP_SIZE = 1000;
+const recentMessageIds = new Set<string>();
 
 type GetGroupParticipants = (
   chatId: string,
@@ -55,6 +57,20 @@ async function processMessage(
 
   // Skip protocol messages (no content)
   if (!msg.message) return;
+
+  // Deduplicate: Baileys can emit duplicate messages.upsert events
+  const msgId = msg.key.id;
+  if (msgId) {
+    if (recentMessageIds.has(msgId)) {
+      log.debug("Skipping duplicate message", { msgId });
+      return;
+    }
+    recentMessageIds.add(msgId);
+    if (recentMessageIds.size > MAX_DEDUP_SIZE) {
+      const first = recentMessageIds.values().next().value;
+      if (first !== undefined) recentMessageIds.delete(first);
+    }
+  }
 
   const text = extractText(msg);
   if (!text) return;
