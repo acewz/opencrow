@@ -31,7 +31,12 @@ export type MemorySourceKind =
   | "arxiv_paper"
   | "scholar_paper"
   | "observation"
-  | "idea";
+  | "idea"
+  | "app_review"
+  | "app_ranking"
+  | "trend"
+  | "defi_protocol"
+  | "dex_token";
 
 export const MEMORY_SOURCE_KINDS = [
   "conversation",
@@ -48,6 +53,11 @@ export const MEMORY_SOURCE_KINDS = [
   "scholar_paper",
   "observation",
   "idea",
+  "app_review",
+  "app_ranking",
+  "trend",
+  "defi_protocol",
+  "dex_token",
 ] as const satisfies readonly MemorySourceKind[];
 
 export interface SearchResult {
@@ -197,6 +207,69 @@ export interface IdeaForIndex {
   readonly reasoning: string;
 }
 
+export interface AppReviewForIndex {
+  readonly id: string;
+  readonly appName: string;
+  readonly title: string;
+  readonly content: string;
+  readonly rating: number;
+  readonly store: "appstore" | "playstore";
+  readonly firstSeenAt: number;
+}
+
+export interface AppRankingForIndex {
+  readonly id: string;
+  readonly name: string;
+  readonly artist: string;
+  readonly category: string;
+  readonly price: string;
+  readonly storeUrl: string;
+  readonly description: string;
+  readonly store: "appstore" | "playstore";
+  readonly installs?: string;
+  readonly updatedAt: number;
+}
+
+export interface TrendForIndex {
+  readonly id: string;
+  readonly title: string;
+  readonly description: string;
+  readonly category: string;
+  readonly trafficVolume: string;
+  readonly relatedQueries: string;
+  readonly sourceUrl: string;
+  readonly source: string;
+  readonly firstSeenAt: number;
+}
+
+export interface DefiProtocolForIndex {
+  readonly id: string;
+  readonly name: string;
+  readonly category: string;
+  readonly chain: string;
+  readonly tvl: number;
+  readonly change1d: number | null;
+  readonly change7d: number | null;
+  readonly description: string;
+  readonly url: string;
+  readonly updatedAt: number;
+}
+
+export interface DexTokenForIndex {
+  readonly id: string;
+  readonly name: string;
+  readonly symbol: string;
+  readonly chainId: string;
+  readonly address: string;
+  readonly priceUsd: string;
+  readonly priceChange24h: number;
+  readonly volume24h: number;
+  readonly liquidityUsd: number;
+  readonly marketCap: number;
+  readonly pairUrl: string;
+  readonly createdAt: number;
+}
+
 export interface MemoryIndexer {
   indexNote(
     agentId: string,
@@ -256,6 +329,31 @@ export interface MemoryIndexer {
   indexIdea(
     agentId: string,
     idea: IdeaForIndex,
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexAppReviews(
+    agentId: string,
+    reviews: readonly AppReviewForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexAppRankings(
+    agentId: string,
+    rankings: readonly AppRankingForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexTrends(
+    agentId: string,
+    trends: readonly TrendForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexDefiProtocols(
+    agentId: string,
+    protocols: readonly DefiProtocolForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexDexTokens(
+    agentId: string,
+    tokens: readonly DexTokenForIndex[],
     metadata?: Record<string, string>,
   ): Promise<string>;
   deleteSourceChunks(sourceId: string): Promise<void>;
@@ -323,6 +421,31 @@ export interface MemoryManager {
   indexIdea(
     agentId: string,
     idea: IdeaForIndex,
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexAppReviews(
+    agentId: string,
+    reviews: readonly AppReviewForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexAppRankings(
+    agentId: string,
+    rankings: readonly AppRankingForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexTrends(
+    agentId: string,
+    trends: readonly TrendForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexDefiProtocols(
+    agentId: string,
+    protocols: readonly DefiProtocolForIndex[],
+    metadata?: Record<string, string>,
+  ): Promise<string>;
+  indexDexTokens(
+    agentId: string,
+    tokens: readonly DexTokenForIndex[],
     metadata?: Record<string, string>,
   ): Promise<string>;
   search(

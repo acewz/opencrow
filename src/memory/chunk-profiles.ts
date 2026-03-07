@@ -20,6 +20,11 @@ const profiles: Record<MemorySourceKind, ChunkProfile> = {
   document: { maxTokens: 500, overlap: 100 },
   observation: { maxTokens: 300, overlap: 50 },
   idea: { maxTokens: 400, overlap: 80 },
+  app_review: { maxTokens: 200, overlap: 0 },
+  app_ranking: { maxTokens: 200, overlap: 0 },
+  trend: { maxTokens: 300, overlap: 50 },
+  defi_protocol: { maxTokens: 200, overlap: 0 },
+  dex_token: { maxTokens: 150, overlap: 0 },
 };
 
 export function getChunkProfile(kind: MemorySourceKind): ChunkProfile {

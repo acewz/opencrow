@@ -1,7 +1,7 @@
 /** DexScreener data processor — fetch, store, and index trending tokens. */
 
 import { createLogger } from "../../logger";
-import type { MemoryManager, ArticleForIndex } from "../../memory/types";
+import type { MemoryManager, DexTokenForIndex } from "../../memory/types";
 import {
   fetchTrendingTokens,
   fetchNewTokens,
@@ -27,16 +27,21 @@ export interface DexScreenerProcessor {
 
 const SHARED_AGENT_ID = "shared";
 
-function toArticlesForIndex(tokens: readonly TrendingToken[]): readonly ArticleForIndex[] {
+function toDexTokensForIndex(tokens: readonly TrendingToken[]): readonly DexTokenForIndex[] {
   const now = Math.floor(Date.now() / 1000);
   return tokens.map((token) => ({
-    id: crypto.randomUUID(),
-    title: `${token.name} (${token.symbol}) - ${token.chainId}`,
-    url: token.pairUrl,
-    sourceName: "dexscreener",
-    category: "crypto",
-    content: `Token: ${token.name} (${token.symbol}). Chain: ${token.chainId}. Address: ${token.address}. Price: $${token.priceUsd}. 24h Change: ${token.priceChange24h}%. Volume 24h: $${token.volume24h.toLocaleString()}. Liquidity: $${(token.liquidityUsd ?? 0).toLocaleString()}. Market Cap: $${(token.marketCap ?? 0).toLocaleString()}.`,
-    publishedAt: token.createdAt ?? now,
+    id: `${token.chainId}-${token.address}`,
+    name: token.name,
+    symbol: token.symbol,
+    chainId: token.chainId,
+    address: token.address,
+    priceUsd: token.priceUsd,
+    priceChange24h: token.priceChange24h,
+    volume24h: token.volume24h,
+    liquidityUsd: token.liquidityUsd ?? 0,
+    marketCap: token.marketCap ?? 0,
+    pairUrl: token.pairUrl,
+    createdAt: token.createdAt ?? now,
   }));
 }
 
@@ -78,9 +83,9 @@ export function createDexScreenerProcessor(config?: {
 
       // Index into RAG for semantic search
       if (config?.memoryManager && tokens.length > 0) {
-        const forIndex = toArticlesForIndex(tokens);
+        const forIndex = toDexTokensForIndex(tokens);
         config.memoryManager
-          .indexArticles(SHARED_AGENT_ID, forIndex)
+          .indexDexTokens(SHARED_AGENT_ID, forIndex)
           .catch((err) =>
             log.error("Failed to index tokens into RAG", {
               count: forIndex.length,
@@ -128,9 +133,9 @@ export function createDexScreenerProcessor(config?: {
 
       // Index into RAG for semantic search
       if (config?.memoryManager && tokens.length > 0) {
-        const forIndex = toArticlesForIndex(tokens);
+        const forIndex = toDexTokensForIndex(tokens);
         config.memoryManager
-          .indexArticles(SHARED_AGENT_ID, forIndex)
+          .indexDexTokens(SHARED_AGENT_ID, forIndex)
           .catch((err) =>
             log.error("Failed to index new tokens into RAG", {
               count: forIndex.length,

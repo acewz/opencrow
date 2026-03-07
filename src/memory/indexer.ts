@@ -12,6 +12,11 @@ import type {
   ScholarPaperForIndex,
   ObservationForIndex,
   IdeaForIndex,
+  AppReviewForIndex,
+  AppRankingForIndex,
+  TrendForIndex,
+  DefiProtocolForIndex,
+  DexTokenForIndex,
   EmbeddingProvider,
   MemoryIndexer,
   MemorySourceKind,
@@ -573,6 +578,208 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
       await insertChunks(sourceId, agentId, "idea", finalChunks);
 
       log.info("Indexed idea", { agentId, ideaId: idea.id });
+      return sourceId;
+    },
+
+    async indexAppReviews(
+      agentId,
+      reviews: readonly AppReviewForIndex[],
+      metadata,
+    ) {
+      const db = getDb();
+      const sourceId = crypto.randomUUID();
+      const now = Math.floor(Date.now() / 1000);
+      const reviewIds = reviews.map((r) => r.id).join(",");
+      const metadataJson = JSON.stringify({
+        ...(metadata ?? {}),
+        reviewIds,
+        reviewCount: String(reviews.length),
+      });
+
+      await db`
+        INSERT INTO memory_sources (id, kind, agent_id, channel, chat_id, metadata_json, created_at)
+        VALUES (${sourceId}, 'app_review', ${agentId}, ${null}, ${null}, ${metadataJson}, ${now})
+      `;
+
+      const profile = getChunkProfile("app_review");
+      const chunks = reviews.flatMap((r) => {
+        const text = `[${r.store}] ${r.appName} Review (${r.rating}/5): ${r.title}\n${r.content}`;
+        const itemChunks = chunkText(text, profile);
+        return itemChunks.length > 0 ? itemChunks : [text];
+      });
+      if (chunks.length > 0) {
+        await insertChunks(sourceId, agentId, "app_review", chunks);
+      }
+
+      log.info("Indexed app reviews", {
+        agentId,
+        reviewCount: reviews.length,
+        chunks: chunks.length,
+      });
+      return sourceId;
+    },
+
+    async indexAppRankings(
+      agentId,
+      rankings: readonly AppRankingForIndex[],
+      metadata,
+    ) {
+      const db = getDb();
+      const sourceId = crypto.randomUUID();
+      const now = Math.floor(Date.now() / 1000);
+      const rankingIds = rankings.map((r) => r.id).join(",");
+      const metadataJson = JSON.stringify({
+        ...(metadata ?? {}),
+        rankingIds,
+        rankingCount: String(rankings.length),
+      });
+
+      await db`
+        INSERT INTO memory_sources (id, kind, agent_id, channel, chat_id, metadata_json, created_at)
+        VALUES (${sourceId}, 'app_ranking', ${agentId}, ${null}, ${null}, ${metadataJson}, ${now})
+      `;
+
+      const profile = getChunkProfile("app_ranking");
+      const chunks = rankings.flatMap((r) => {
+        const installs = r.installs ? ` | Installs: ${r.installs}` : "";
+        const text = `[${r.store}] ${r.name} by ${r.artist} | Category: ${r.category} | Price: ${r.price}${installs}\n${r.description}\n${r.storeUrl}`;
+        const itemChunks = chunkText(text, profile);
+        return itemChunks.length > 0 ? itemChunks : [text];
+      });
+      if (chunks.length > 0) {
+        await insertChunks(sourceId, agentId, "app_ranking", chunks);
+      }
+
+      log.info("Indexed app rankings", {
+        agentId,
+        rankingCount: rankings.length,
+        chunks: chunks.length,
+      });
+      return sourceId;
+    },
+
+    async indexTrends(
+      agentId,
+      trends: readonly TrendForIndex[],
+      metadata,
+    ) {
+      const db = getDb();
+      const sourceId = crypto.randomUUID();
+      const now = Math.floor(Date.now() / 1000);
+      const trendIds = trends.map((t) => t.id).join(",");
+      const metadataJson = JSON.stringify({
+        ...(metadata ?? {}),
+        trendIds,
+        trendCount: String(trends.length),
+      });
+
+      await db`
+        INSERT INTO memory_sources (id, kind, agent_id, channel, chat_id, metadata_json, created_at)
+        VALUES (${sourceId}, 'trend', ${agentId}, ${null}, ${null}, ${metadataJson}, ${now})
+      `;
+
+      const profile = getChunkProfile("trend");
+      const chunks = trends.flatMap((t) => {
+        const parts = [
+          `[${t.category}] ${t.title}`,
+          t.description,
+          t.trafficVolume ? `Traffic: ${t.trafficVolume}` : "",
+          t.relatedQueries ? `Related: ${t.relatedQueries}` : "",
+          `Source: ${t.source}`,
+          t.sourceUrl,
+        ].filter(Boolean);
+        const text = parts.join("\n");
+        const itemChunks = chunkText(text, profile);
+        return itemChunks.length > 0 ? itemChunks : [text];
+      });
+      if (chunks.length > 0) {
+        await insertChunks(sourceId, agentId, "trend", chunks);
+      }
+
+      log.info("Indexed trends", {
+        agentId,
+        trendCount: trends.length,
+        chunks: chunks.length,
+      });
+      return sourceId;
+    },
+
+    async indexDefiProtocols(
+      agentId,
+      protocols: readonly DefiProtocolForIndex[],
+      metadata,
+    ) {
+      const db = getDb();
+      const sourceId = crypto.randomUUID();
+      const now = Math.floor(Date.now() / 1000);
+      const protocolIds = protocols.map((p) => p.id).join(",");
+      const metadataJson = JSON.stringify({
+        ...(metadata ?? {}),
+        protocolIds,
+        protocolCount: String(protocols.length),
+      });
+
+      await db`
+        INSERT INTO memory_sources (id, kind, agent_id, channel, chat_id, metadata_json, created_at)
+        VALUES (${sourceId}, 'defi_protocol', ${agentId}, ${null}, ${null}, ${metadataJson}, ${now})
+      `;
+
+      const profile = getChunkProfile("defi_protocol");
+      const chunks = protocols.flatMap((p) => {
+        const change1d = p.change1d !== null ? `${p.change1d.toFixed(1)}%` : "N/A";
+        const change7d = p.change7d !== null ? `${p.change7d.toFixed(1)}%` : "N/A";
+        const desc = p.description ? `\n${p.description}` : "";
+        const text = `${p.name} (${p.category}) on ${p.chain} | TVL: $${p.tvl.toLocaleString()} | 24h: ${change1d} | 7d: ${change7d}${desc}\n${p.url}`;
+        const itemChunks = chunkText(text, profile);
+        return itemChunks.length > 0 ? itemChunks : [text];
+      });
+      if (chunks.length > 0) {
+        await insertChunks(sourceId, agentId, "defi_protocol", chunks);
+      }
+
+      log.info("Indexed DeFi protocols", {
+        agentId,
+        protocolCount: protocols.length,
+        chunks: chunks.length,
+      });
+      return sourceId;
+    },
+
+    async indexDexTokens(
+      agentId,
+      tokens: readonly DexTokenForIndex[],
+      metadata,
+    ) {
+      const db = getDb();
+      const sourceId = crypto.randomUUID();
+      const now = Math.floor(Date.now() / 1000);
+      const tokenIds = tokens.map((t) => t.id).join(",");
+      const metadataJson = JSON.stringify({
+        ...(metadata ?? {}),
+        tokenIds,
+        tokenCount: String(tokens.length),
+      });
+
+      await db`
+        INSERT INTO memory_sources (id, kind, agent_id, channel, chat_id, metadata_json, created_at)
+        VALUES (${sourceId}, 'dex_token', ${agentId}, ${null}, ${null}, ${metadataJson}, ${now})
+      `;
+
+      const profile = getChunkProfile("dex_token");
+      const chunks = tokens.flatMap((t) => {
+        const text = `${t.name} (${t.symbol}) on ${t.chainId} | Price: $${t.priceUsd} | 24h: ${t.priceChange24h}% | Vol: $${t.volume24h.toLocaleString()} | Liq: $${t.liquidityUsd.toLocaleString()} | MCap: $${t.marketCap.toLocaleString()}\n${t.pairUrl}`;
+        const itemChunks = chunkText(text, profile);
+        return itemChunks.length > 0 ? itemChunks : [text];
+      });
+      if (chunks.length > 0) {
+        await insertChunks(sourceId, agentId, "dex_token", chunks);
+      }
+
+      log.info("Indexed DEX tokens", {
+        agentId,
+        tokenCount: tokens.length,
+        chunks: chunks.length,
+      });
       return sourceId;
     },
 

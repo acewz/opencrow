@@ -51,6 +51,11 @@ function mockMemoryManager(
     indexScholarPapers: async () => "ok",
     indexObservations: async () => "ok",
     indexIdea: async () => "ok",
+    indexAppReviews: async () => "ok",
+    indexAppRankings: async () => "ok",
+    indexTrends: async () => "ok",
+    indexDefiProtocols: async () => "ok",
+    indexDexTokens: async () => "ok",
     getStats: async () => ({ sourceCount: 0, chunkCount: 0, totalTokens: 0 }),
   } as unknown as MemoryManager;
 }
@@ -92,7 +97,7 @@ describe("createCrossSourceSearchTool", () => {
     expect(props).toHaveProperty("limit");
   });
 
-  it("should list all 9 searchable kinds in sources enum", () => {
+  it("should list all 14 searchable kinds in sources enum", () => {
     const tool = createCrossSourceSearchTool(mockMemoryManager());
     const props = tool.inputSchema.properties as Record<string, any>;
     const sourceItems = props.sources.items;
@@ -105,7 +110,12 @@ describe("createCrossSourceSearchTool", () => {
     expect(sourceItems.enum).toContain("arxiv_paper");
     expect(sourceItems.enum).toContain("scholar_paper");
     expect(sourceItems.enum).toContain("hf_model");
-    expect(sourceItems.enum).toHaveLength(9);
+    expect(sourceItems.enum).toContain("app_review");
+    expect(sourceItems.enum).toContain("app_ranking");
+    expect(sourceItems.enum).toContain("trend");
+    expect(sourceItems.enum).toContain("defi_protocol");
+    expect(sourceItems.enum).toContain("dex_token");
+    expect(sourceItems.enum).toHaveLength(14);
   });
 
   // -- Execute: input validation --------------------------------------------

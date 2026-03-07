@@ -1,5 +1,5 @@
 import { createLogger } from "../../logger";
-import type { MemoryManager, ArticleForIndex } from "../../memory/types";
+import type { MemoryManager, AppReviewForIndex, AppRankingForIndex } from "../../memory/types";
 import {
   upsertRankings,
   upsertReviews,
@@ -244,37 +244,38 @@ function parseReviews(
     }));
 }
 
-function reviewsToArticlesForIndex(
+function reviewsToAppReviewsForIndex(
   reviews: readonly AppReviewRow[],
-): readonly ArticleForIndex[] {
+): readonly AppReviewForIndex[] {
   return reviews.map((r) => ({
     id: `appstore-review-${r.id}`,
-    title: `${r.app_name} Review: ${r.title}`,
-    url: "",
-    sourceName: "appstore",
-    category: "app-review",
-    content: `App: ${r.app_name} | Rating: ${r.rating}/5 | Review: ${r.title} - ${r.content}`,
-    publishedAt: r.first_seen_at,
+    appName: r.app_name,
+    title: r.title,
+    content: r.content,
+    rating: r.rating,
+    store: "appstore" as const,
+    firstSeenAt: r.first_seen_at,
   }));
 }
 
-function rankingsToArticlesForIndex(
+function rankingsToAppRankingsForIndex(
   rankings: readonly AppRankingRow[],
-): readonly ArticleForIndex[] {
+): readonly AppRankingForIndex[] {
   return rankings
     .filter((r) => r.description)
     .map((r) => ({
       id: `appstore-ranking-${r.id}-${r.list_type}`,
-      title: `${r.name} by ${r.artist}`,
-      url: r.store_url,
-      sourceName: "appstore",
-      category: "app-ranking",
-      content: `App: ${r.name} | Category: ${r.category} | Price: ${
+      name: r.name,
+      artist: r.artist,
+      category: r.category,
+      price:
         r.price === "0.00000" || r.price === "0" || r.price === "Free"
           ? "Free"
-          : "$" + r.price
-      } | ${r.description}`,
-      publishedAt: r.updated_at,
+          : "$" + r.price,
+      storeUrl: r.store_url,
+      description: r.description,
+      store: "appstore" as const,
+      updatedAt: r.updated_at,
     }));
 }
 
@@ -319,10 +320,10 @@ export function createAppStoreScraper(config?: {
       const unindexed = await getUnindexedReviews(200);
       if (unindexed.length === 0) return;
 
-      const forIndex = reviewsToArticlesForIndex(unindexed);
+      const forIndex = reviewsToAppReviewsForIndex(unindexed);
       const ids = unindexed.map((r) => r.id);
 
-      await config.memoryManager.indexArticles(APPSTORE_AGENT_ID, forIndex);
+      await config.memoryManager.indexAppReviews(APPSTORE_AGENT_ID, forIndex);
       await markReviewsIndexed(ids);
 
       log.info("Indexed reviews into memory", { count: ids.length });
@@ -338,10 +339,10 @@ export function createAppStoreScraper(config?: {
       const unindexed = await getUnindexedRankings(200);
       if (unindexed.length === 0) return;
 
-      const forIndex = rankingsToArticlesForIndex(unindexed);
+      const forIndex = rankingsToAppRankingsForIndex(unindexed);
       const ids = unindexed.map((r) => r.id);
 
-      await config.memoryManager.indexArticles(APPSTORE_AGENT_ID, forIndex);
+      await config.memoryManager.indexAppRankings(APPSTORE_AGENT_ID, forIndex);
       await markRankingsIndexed(ids);
 
       log.info("Indexed rankings into memory", { count: ids.length });

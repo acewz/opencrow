@@ -12,6 +12,11 @@ const SEARCHABLE_KINDS: readonly MemorySourceKind[] = [
   "arxiv_paper",
   "scholar_paper",
   "hf_model",
+  "app_review",
+  "app_ranking",
+  "trend",
+  "defi_protocol",
+  "dex_token",
 ];
 
 const KIND_LABELS: Record<string, string> = {
@@ -24,6 +29,11 @@ const KIND_LABELS: Record<string, string> = {
   arxiv_paper: "arXiv",
   scholar_paper: "Semantic Scholar",
   hf_model: "HuggingFace",
+  app_review: "App Reviews",
+  app_ranking: "App Rankings",
+  trend: "Google Trends",
+  defi_protocol: "DeFi Protocols",
+  dex_token: "DEX Tokens",
 };
 
 function formatResult(r: {

@@ -1,5 +1,5 @@
 import { createLogger } from "../../logger";
-import type { MemoryManager, ArticleForIndex } from "../../memory/types";
+import type { MemoryManager, AppReviewForIndex, AppRankingForIndex } from "../../memory/types";
 import {
   upsertRankings,
   upsertReviews,
@@ -126,33 +126,36 @@ function mapAppToRanking(
   };
 }
 
-function reviewsToArticlesForIndex(
+function reviewsToAppReviewsForIndex(
   reviews: readonly PlayReviewRow[],
-): readonly ArticleForIndex[] {
+): readonly AppReviewForIndex[] {
   return reviews.map((r) => ({
     id: `playstore-review-${r.id}`,
-    title: `${r.app_name} Review: ${r.title}`,
-    url: "",
-    sourceName: "playstore",
-    category: "app-review",
-    content: `App: ${r.app_name} | Rating: ${r.rating}/5 | Review: ${r.title} - ${r.content}`,
-    publishedAt: r.first_seen_at,
+    appName: r.app_name,
+    title: r.title,
+    content: r.content,
+    rating: r.rating,
+    store: "playstore" as const,
+    firstSeenAt: r.first_seen_at,
   }));
 }
 
-function rankingsToArticlesForIndex(
+function rankingsToAppRankingsForIndex(
   rankings: readonly PlayRankingRow[],
-): readonly ArticleForIndex[] {
+): readonly AppRankingForIndex[] {
   return rankings
     .filter((r) => r.description)
     .map((r) => ({
       id: `playstore-ranking-${r.id}-${r.list_type}`,
-      title: `${r.name} by ${r.developer}`,
-      url: r.store_url,
-      sourceName: "playstore",
-      category: "app-ranking",
-      content: `App: ${r.name} | Category: ${r.category} | Price: ${r.price} | Installs: ${r.installs} | ${r.description}`,
-      publishedAt: r.updated_at,
+      name: r.name,
+      artist: r.developer,
+      category: r.category,
+      price: r.price,
+      storeUrl: r.store_url,
+      description: r.description,
+      store: "playstore" as const,
+      installs: r.installs,
+      updatedAt: r.updated_at,
     }));
 }
 
@@ -255,10 +258,10 @@ export function createPlayStoreScraper(config?: {
       const unindexed = await getUnindexedReviews(200);
       if (unindexed.length === 0) return;
 
-      const forIndex = reviewsToArticlesForIndex(unindexed);
+      const forIndex = reviewsToAppReviewsForIndex(unindexed);
       const ids = unindexed.map((r) => r.id);
 
-      await config.memoryManager.indexArticles(PLAYSTORE_AGENT_ID, forIndex);
+      await config.memoryManager.indexAppReviews(PLAYSTORE_AGENT_ID, forIndex);
       await markReviewsIndexed(ids);
 
       log.info("Indexed Play Store reviews into memory", { count: ids.length });
@@ -274,10 +277,10 @@ export function createPlayStoreScraper(config?: {
       const unindexed = await getUnindexedRankings(200);
       if (unindexed.length === 0) return;
 
-      const forIndex = rankingsToArticlesForIndex(unindexed);
+      const forIndex = rankingsToAppRankingsForIndex(unindexed);
       const ids = unindexed.map((r) => r.id);
 
-      await config.memoryManager.indexArticles(PLAYSTORE_AGENT_ID, forIndex);
+      await config.memoryManager.indexAppRankings(PLAYSTORE_AGENT_ID, forIndex);
       await markRankingsIndexed(ids);
 
       log.info("Indexed Play Store rankings into memory", { count: ids.length });

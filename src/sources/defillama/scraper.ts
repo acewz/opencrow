@@ -1,12 +1,12 @@
 import { createLogger } from "../../logger";
-import type { MemoryManager, ArticleForIndex } from "../../memory/types";
+import type { MemoryManager, DefiProtocolForIndex } from "../../memory/types";
 import {
   getUnindexedProtocols,
   markProtocolsIndexed,
   MAJOR_CHAINS,
 } from "./store";
 import { delay, REQUEST_DELAY_MS, DEFILLAMA_AGENT_ID } from "./api";
-import { scrapeProtocols, protocolToArticleForIndex } from "./scrape-protocols";
+import { scrapeProtocols, protocolToDefiProtocolForIndex } from "./scrape-protocols";
 import { scrapeChains, scrapeHistoricalTvl, scrapeChainMetrics } from "./scrape-chains";
 import { scrapeOverviews } from "./scrape-overviews";
 import { scrapeYieldPools } from "./scrape-yields";
@@ -46,21 +46,14 @@ export function createDefiLlamaScraper(config?: {
         return;
       }
 
-      const forIndex: readonly ArticleForIndex[] = significant.map(
-        protocolToArticleForIndex,
+      const forIndex: readonly DefiProtocolForIndex[] = significant.map(
+        protocolToDefiProtocolForIndex,
       );
 
       const ids = unindexed.map((p) => p.id);
 
-      config.memoryManager
-        .indexArticles(DEFILLAMA_AGENT_ID, forIndex)
-        .then(() => markProtocolsIndexed(ids))
-        .catch((err) =>
-          log.error("Failed to index DeFi protocols into RAG", {
-            count: forIndex.length,
-            error: err,
-          }),
-        );
+      await config.memoryManager.indexDefiProtocols(DEFILLAMA_AGENT_ID, forIndex);
+      await markProtocolsIndexed(ids);
     } catch (err) {
       log.error("Failed to index protocols to memory", {
         error: err instanceof Error ? err.message : String(err),

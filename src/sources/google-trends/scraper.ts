@@ -1,5 +1,5 @@
 import { createLogger } from "../../logger";
-import type { MemoryManager, ArticleForIndex } from "../../memory/types";
+import type { MemoryManager, TrendForIndex } from "../../memory/types";
 import {
   upsertTrends,
   getUnindexedTrends,
@@ -192,34 +192,33 @@ async function fetchFeed(
   return rows;
 }
 
-function rowsToArticlesForIndex(
+function rowsToTrendsForIndex(
   rows: readonly TrendRow[],
-): readonly ArticleForIndex[] {
-  return rows.map((t) => ({
-    id: t.id,
-    title: t.title,
-    url: t.source_url,
-    sourceName: t.source || "Google Trends",
-    category: t.category,
-    content: [
-      t.description,
-      t.traffic_volume ? `Traffic: ${t.traffic_volume}` : "",
-      t.related_queries ? `Related: ${t.related_queries}` : "",
-      (() => {
-        if (!t.news_items_json) return "";
-        try {
-          const items = JSON.parse(t.news_items_json) as { title: string }[];
-          const titles = items.map((i) => i.title).filter(Boolean).join("; ");
-          return titles ? `News: ${titles}` : "";
-        } catch {
-          return "";
-        }
-      })(),
-    ]
-      .filter(Boolean)
-      .join("\n"),
-    publishedAt: t.first_seen_at,
-  }));
+): readonly TrendForIndex[] {
+  return rows.map((t) => {
+    let newsInfo = "";
+    if (t.news_items_json) {
+      try {
+        const items = JSON.parse(t.news_items_json) as { title: string }[];
+        const titles = items.map((i) => i.title).filter(Boolean).join("; ");
+        newsInfo = titles ? `News: ${titles}` : "";
+      } catch {
+        newsInfo = "";
+      }
+    }
+
+    return {
+      id: t.id,
+      title: t.title,
+      description: [t.description, newsInfo].filter(Boolean).join("\n"),
+      category: t.category,
+      trafficVolume: t.traffic_volume ?? "",
+      relatedQueries: t.related_queries ?? "",
+      sourceUrl: t.source_url,
+      source: t.source || "Google Trends",
+      firstSeenAt: t.first_seen_at,
+    };
+  });
 }
 
 export function createGoogleTrendsScraper(config?: {
@@ -258,17 +257,17 @@ export function createGoogleTrendsScraper(config?: {
       try {
         const unindexed = await getUnindexedTrends(200);
         if (unindexed.length > 0) {
-          const forIndex = rowsToArticlesForIndex(unindexed);
+          const forIndex = rowsToTrendsForIndex(unindexed);
           const ids = unindexed.map((t) => t.id);
-          config.memoryManager
-            .indexArticles(AGENT_ID, forIndex)
-            .then(() => markTrendsIndexed(ids))
-            .catch((err) =>
-              log.error("Failed to index Google Trends into RAG", {
-                count: forIndex.length,
-                error: err,
-              }),
-            );
+          try {
+            await config.memoryManager.indexTrends(AGENT_ID, forIndex);
+            await markTrendsIndexed(ids);
+          } catch (err) {
+            log.error("Failed to index Google Trends into RAG", {
+              count: forIndex.length,
+              error: err,
+            });
+          }
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

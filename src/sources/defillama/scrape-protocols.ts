@@ -1,5 +1,5 @@
 import { createLogger } from "../../logger";
-import type { ArticleForIndex } from "../../memory/types";
+import type { DefiProtocolForIndex } from "../../memory/types";
 import { upsertProtocols } from "./store";
 import {
   fetchJson,
@@ -46,26 +46,18 @@ export function rawProtocolToRow(raw: RawProtocol): ProtocolRow {
   };
 }
 
-export function protocolToArticleForIndex(p: ProtocolRow): ArticleForIndex {
-  const content = [
-    `Protocol: ${p.name} (${p.category})`,
-    `Chain: ${p.chain}`,
-    `TVL: ${formatTvl(p.tvl)}`,
-    `24h Change: ${formatChange(p.change_1d)}`,
-    `7d Change: ${formatChange(p.change_7d)}`,
-    p.description ? `Description: ${p.description}` : null,
-  ]
-    .filter(Boolean)
-    .join(" | ");
-
+export function protocolToDefiProtocolForIndex(p: ProtocolRow): DefiProtocolForIndex {
   return {
     id: `defillama-${p.id}`,
-    title: `${p.name} - ${p.category} on ${p.chain}`,
-    url: p.url,
-    sourceName: "DeFi Llama",
+    name: p.name,
     category: p.category,
-    content,
-    publishedAt: p.updated_at,
+    chain: p.chain,
+    tvl: p.tvl,
+    change1d: p.change_1d,
+    change7d: p.change_7d,
+    description: p.description ?? "",
+    url: p.url,
+    updatedAt: p.updated_at,
   };
 }
 
