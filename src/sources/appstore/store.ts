@@ -1,16 +1,20 @@
 import { getDb } from "../../store/db";
 
 export interface AppRankingRow {
-  id: string;
-  name: string;
-  artist: string;
-  category: string;
-  rank: number;
-  list_type: string;
-  icon_url: string;
-  store_url: string;
-  updated_at: number;
-  indexed_at: number | null;
+  readonly id: string;
+  readonly name: string;
+  readonly artist: string;
+  readonly category: string;
+  readonly rank: number;
+  readonly list_type: string;
+  readonly icon_url: string;
+  readonly store_url: string;
+  readonly description: string;
+  readonly price: string;
+  readonly bundle_id: string;
+  readonly release_date: string;
+  readonly updated_at: number;
+  readonly indexed_at: number | null;
 }
 
 export interface AppReviewRow {
@@ -38,10 +42,11 @@ export async function upsertRankings(
     await db`
       INSERT INTO appstore_rankings (
         id, name, artist, category, rank, list_type,
-        icon_url, store_url, updated_at
+        icon_url, store_url, description, price, bundle_id, release_date, updated_at
       ) VALUES (
         ${r.id}, ${r.name}, ${r.artist}, ${r.category}, ${r.rank},
-        ${r.list_type}, ${r.icon_url}, ${r.store_url}, ${r.updated_at}
+        ${r.list_type}, ${r.icon_url}, ${r.store_url}, ${r.description},
+        ${r.price}, ${r.bundle_id}, ${r.release_date}, ${r.updated_at}
       )
       ON CONFLICT (id, list_type) DO UPDATE SET
         name = EXCLUDED.name,
@@ -50,6 +55,10 @@ export async function upsertRankings(
         rank = EXCLUDED.rank,
         icon_url = EXCLUDED.icon_url,
         store_url = EXCLUDED.store_url,
+        description = EXCLUDED.description,
+        price = EXCLUDED.price,
+        bundle_id = EXCLUDED.bundle_id,
+        release_date = EXCLUDED.release_date,
         updated_at = EXCLUDED.updated_at
     `;
     upserted++;
@@ -147,4 +156,43 @@ export async function markReviewsIndexed(
     UPDATE appstore_reviews SET indexed_at = ${now}
     WHERE id IN ${db(ids)}
   `;
+}
+
+export async function getUnindexedRankings(
+  limit = 200,
+): Promise<AppRankingRow[]> {
+  const db = getDb();
+  const rows = await db`
+    SELECT * FROM appstore_rankings
+    WHERE indexed_at IS NULL AND description != ''
+    ORDER BY updated_at DESC
+    LIMIT ${limit}
+  `;
+  return rows as AppRankingRow[];
+}
+
+export async function markRankingsIndexed(
+  ids: readonly string[],
+): Promise<void> {
+  if (ids.length === 0) return;
+  const db = getDb();
+  const now = Math.floor(Date.now() / 1000);
+  await db`
+    UPDATE appstore_rankings SET indexed_at = ${now}
+    WHERE id IN ${db(ids)}
+  `;
+}
+
+export async function getRankingsByCategory(
+  category: string,
+  limit = 50,
+): Promise<AppRankingRow[]> {
+  const db = getDb();
+  const rows = await db`
+    SELECT * FROM appstore_rankings
+    WHERE category ILIKE ${category}
+    ORDER BY rank ASC, updated_at DESC
+    LIMIT ${limit}
+  `;
+  return rows as AppRankingRow[];
 }

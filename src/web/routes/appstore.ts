@@ -1,15 +1,30 @@
 import { Hono } from "hono";
-import { getRankings, getLowRatedReviews } from "../../sources/appstore/store";
+import { createLogger } from "../../logger";
+import {
+  getRankings,
+  getRankingsByCategory,
+  getLowRatedReviews,
+} from "../../sources/appstore/store";
 import { getDb } from "../../store/db";
+import type { CoreClient } from "../core-client";
 
-export function createAppStoreRoutes(): Hono {
+const log = createLogger("appstore-api");
+
+export function createAppStoreRoutes(
+  opts: { coreClient?: CoreClient } = {},
+): Hono {
   const app = new Hono();
 
   app.get("/appstore/rankings", async (c) => {
     const listType = c.req.query("list_type") || undefined;
+    const category = c.req.query("category") || undefined;
     const limitParam = c.req.query("limit");
     const limit = Math.max(1, Math.min(Number(limitParam ?? "50") || 50, 200));
-    const rankings = await getRankings(listType, limit);
+
+    const rankings = category
+      ? await getRankingsByCategory(category, limit)
+      : await getRankings(listType, limit);
+
     return c.json({ success: true, data: rankings });
   });
 
@@ -26,10 +41,34 @@ export function createAppStoreRoutes(): Hono {
       SELECT
         (SELECT count(*) FROM appstore_rankings) as total_apps,
         (SELECT count(*) FROM appstore_reviews) as total_reviews,
+        (SELECT count(DISTINCT category) FROM appstore_rankings) as total_categories,
         (SELECT max(updated_at) FROM appstore_rankings) as last_updated_at
     `;
-    const stats = rows[0] ?? { total_apps: 0, total_reviews: 0, last_updated_at: null };
+    const stats = rows[0] ?? {
+      total_apps: 0,
+      total_reviews: 0,
+      total_categories: 0,
+      last_updated_at: null,
+    };
     return c.json({ success: true, data: stats });
+  });
+
+  app.post("/appstore/scrape-now", async (c) => {
+    log.info("Manual App Store scrape triggered");
+
+    if (opts.coreClient) {
+      const result = await opts.coreClient.scraperAction(
+        "appstore",
+        "scrape-now",
+        {},
+      );
+      return c.json({ success: true, data: result.data });
+    }
+
+    return c.json(
+      { success: false, error: "App Store scraper not available" },
+      503,
+    );
   });
 
   return app;

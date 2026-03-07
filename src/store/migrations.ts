@@ -1536,4 +1536,41 @@ export const MIGRATIONS = [
   // --- Google Trends: add picture_url and news_items_json to existing tables ---
   `ALTER TABLE google_trends ADD COLUMN IF NOT EXISTS picture_url TEXT DEFAULT NULL`,
   `ALTER TABLE google_trends ADD COLUMN IF NOT EXISTS news_items_json TEXT DEFAULT NULL`,
+
+  // --- App Store ---
+  `CREATE TABLE IF NOT EXISTS appstore_rankings (
+    id TEXT NOT NULL,
+    name TEXT NOT NULL,
+    artist TEXT NOT NULL,
+    category TEXT NOT NULL DEFAULT '',
+    rank INTEGER NOT NULL,
+    list_type TEXT NOT NULL,
+    icon_url TEXT NOT NULL DEFAULT '',
+    store_url TEXT NOT NULL DEFAULT '',
+    description TEXT NOT NULL DEFAULT '',
+    price TEXT NOT NULL DEFAULT 'Free',
+    bundle_id TEXT NOT NULL DEFAULT '',
+    release_date TEXT NOT NULL DEFAULT '',
+    updated_at INTEGER NOT NULL,
+    indexed_at INTEGER,
+    PRIMARY KEY (id, list_type)
+  )`,
+  `CREATE TABLE IF NOT EXISTS appstore_reviews (
+    id TEXT PRIMARY KEY,
+    app_id TEXT NOT NULL,
+    app_name TEXT NOT NULL,
+    author TEXT NOT NULL DEFAULT '',
+    rating INTEGER NOT NULL DEFAULT 0,
+    title TEXT NOT NULL DEFAULT '',
+    content TEXT NOT NULL DEFAULT '',
+    version TEXT NOT NULL DEFAULT '',
+    first_seen_at INTEGER NOT NULL,
+    indexed_at INTEGER
+  )`,
+
+  // --- App Store: add richer fields to existing tables ---
+  `ALTER TABLE appstore_rankings ADD COLUMN IF NOT EXISTS description TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE appstore_rankings ADD COLUMN IF NOT EXISTS price TEXT NOT NULL DEFAULT 'Free'`,
+  `ALTER TABLE appstore_rankings ADD COLUMN IF NOT EXISTS bundle_id TEXT NOT NULL DEFAULT ''`,
+  `ALTER TABLE appstore_rankings ADD COLUMN IF NOT EXISTS release_date TEXT NOT NULL DEFAULT ''`,
 ];
