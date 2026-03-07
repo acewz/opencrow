@@ -2,6 +2,7 @@ import type { Bot, Context } from "grammy";
 import { sequentialize } from "@grammyjs/runner";
 import type { IncomingMessage, MessageHandler } from "../types";
 import { getQuestionBus } from "../../agent/question-bus";
+import { clearObservationsByChat } from "../../store/observations";
 import { createLogger } from "../../logger";
 
 const log = createLogger("telegram-handler");
@@ -52,6 +53,17 @@ export function createTelegramHandler(
 
   bot.command("status", async (ctx) => {
     await ctx.reply("OpenCrow is online.");
+  });
+
+  bot.command("clearobs", async (ctx) => {
+    const chatId = String(ctx.chat.id);
+    try {
+      const count = await clearObservationsByChat("telegram", chatId);
+      await ctx.reply(`Cleared ${count} observation${count === 1 ? "" : "s"}.`);
+    } catch (error) {
+      log.error("Failed to clear observations", { chatId, error });
+      await ctx.reply("Failed to clear observations.");
+    }
   });
 
   // Handle inline keyboard button clicks

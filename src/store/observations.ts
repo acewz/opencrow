@@ -103,6 +103,18 @@ export async function getObservationsByChat(
   return (rows as ObservationRow[]).map(rowToObservation);
 }
 
+export async function clearObservationsByChat(
+  channel: string,
+  chatId: string,
+): Promise<number> {
+  const db = getDb();
+  const result = await db`
+    DELETE FROM conversation_observations
+    WHERE channel = ${channel} AND chat_id = ${chatId}
+  `;
+  return result.count;
+}
+
 export function formatObservationBlock(
   observations: readonly Observation[],
 ): string {
