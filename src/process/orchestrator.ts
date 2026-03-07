@@ -12,6 +12,9 @@ const BACKOFF_INITIAL_MS = 1_000;
 const BACKOFF_MAX_MS = 60_000;
 const BACKOFF_RESET_STABLE_MS = 300_000; // 5 min stable → reset backoff
 const GRACEFUL_SHUTDOWN_MS = 10_000;
+const PING_TIMEOUT_MS = 2_000;
+const PING_INTERVAL_MS = 15_000;
+const HUNG_STRIKES_MAX = 2; // miss 2 consecutive pings → hung
 
 interface ChildState {
   readonly spec: ResolvedProcessSpec;
@@ -25,6 +28,8 @@ interface ChildState {
   backoffTimer: ReturnType<typeof setTimeout> | null;
   nextRetryAt: number | null;
   stoppedByUser: boolean;
+  lastPong: number;
+  hungStrikes: number;
 }
 
 export interface OrchestratorProcessView {
@@ -66,6 +71,7 @@ export function createOrchestrator(
 ): Orchestrator {
   const children = new Map<string, ChildState>();
   let reconcileTimer: ReturnType<typeof setInterval> | null = null;
+  let pingTimer: ReturnType<typeof setInterval> | null = null;
   let running = false;
   let config = initialConfig;
 
@@ -89,12 +95,20 @@ export function createOrchestrator(
       env: mergedEnv,
       stdout: "inherit",
       stderr: "inherit",
+      ipc(message) {
+        if (message === "pong") {
+          state.lastPong = Date.now();
+          state.hungStrikes = 0;
+        }
+      },
     });
 
     state.proc = proc;
     state.pid = proc.pid;
     state.startedAt = Date.now();
     state.status = "running";
+    state.lastPong = Date.now();
+    state.hungStrikes = 0;
 
     // Handle child exit
     proc.exited.then((exitCode) => {
@@ -189,6 +203,58 @@ export function createOrchestrator(
     }
   }
 
+  async function pingChildren(): Promise<void> {
+    for (const [name, state] of children) {
+      if (state.status !== "running" || !state.proc) continue;
+
+      // Send ping via IPC
+      try {
+        state.proc.send("ping");
+      } catch {
+        // IPC channel closed — process is dying, reconcile will handle it
+        continue;
+      }
+
+      // Wait for pong
+      const pongBefore = state.lastPong;
+      await new Promise((r) => setTimeout(r, PING_TIMEOUT_MS));
+
+      if (state.lastPong === pongBefore && state.status === "running" && state.proc) {
+        state.hungStrikes += 1;
+        log.warn("Process missed ping/pong", {
+          name,
+          pid: state.pid,
+          strikes: state.hungStrikes,
+          maxStrikes: HUNG_STRIKES_MAX,
+        });
+
+        if (state.hungStrikes >= HUNG_STRIKES_MAX) {
+          log.error("Killing hung process (no pong response)", {
+            name,
+            pid: state.pid,
+            lastPongAgo: Date.now() - state.lastPong,
+          });
+
+          try {
+            state.proc.kill("SIGKILL");
+          } catch {
+            // Already dead
+          }
+          state.proc = null;
+          state.pid = null;
+          state.hungStrikes = 0;
+
+          // Schedule restart
+          if (!state.stoppedByUser && state.spec.restartPolicy !== "never") {
+            scheduleRestart(state);
+          } else {
+            state.status = "stopped";
+          }
+        }
+      }
+    }
+  }
+
   async function reconcile(): Promise<void> {
     const desiredSpecs = resolveManifest(config, agentRegistry.agents);
     const desiredNames = new Set(desiredSpecs.map((s) => s.name));
@@ -209,6 +275,8 @@ export function createOrchestrator(
           backoffTimer: null,
           nextRetryAt: null,
           stoppedByUser: false,
+          lastPong: Date.now(),
+          hungStrikes: 0,
         };
         children.set(spec.name, state);
         spawnChild(state);
@@ -305,6 +373,10 @@ export function createOrchestrator(
       clearInterval(reconcileTimer);
       reconcileTimer = null;
     }
+    if (pingTimer) {
+      clearInterval(pingTimer);
+      pingTimer = null;
+    }
 
     // Send SIGTERM to all
     const killPromises: Promise<void>[] = [];
@@ -377,6 +449,12 @@ export function createOrchestrator(
           log.error("Reconciliation failed", { error: err });
         });
       }, RECONCILE_INTERVAL_MS);
+
+      pingTimer = setInterval(() => {
+        pingChildren().catch((err) => {
+          log.error("Ping check failed", { error: err });
+        });
+      }, PING_INTERVAL_MS);
 
       // Graceful shutdown handlers
       const shutdown = () => {

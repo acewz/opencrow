@@ -133,11 +133,23 @@ export function createProcessSupervisor(
     }
   }
 
+  // Respond to IPC ping from orchestrator
+  function setupPingResponder(): void {
+    if (typeof process.send === "function") {
+      process.on("message", (msg: unknown) => {
+        if (msg === "ping") {
+          process.send!("pong");
+        }
+      });
+    }
+  }
+
   return {
     async start(): Promise<void> {
       if (running) return;
       running = true;
 
+      setupPingResponder();
       await ensureSingleInstance();
       await registerProcess(name, metadata);
       log.info("Process registered", { process: name, pid: process.pid });
