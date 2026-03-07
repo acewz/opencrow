@@ -512,18 +512,28 @@ function createSubagentStopHook(agentId: string): HookCallback {
         }
 
         // Phase 5: Self-reflection checks (fire-and-forget observability)
+        const withDbTimeout = <T>(p: Promise<T>): Promise<T> =>
+          Promise.race([
+            p,
+            new Promise<T>((_, reject) =>
+              setTimeout(() => reject(new Error("db timeout")), 3000),
+            ),
+          ]);
+
         if (status === "timeout") {
           import("./self-reflection")
             .then(async ({ checkTimeout }) => {
               const db = getDb();
-              const startRow = await db`
+              const startRow = await withDbTimeout(
+                db`
                 SELECT created_at FROM subagent_audit_log
                 WHERE parent_agent_id = ${agentId}
                   AND session_id = ${sessionId}
                   AND subagent_id = ${subagentId}
                 ORDER BY created_at DESC
                 LIMIT 1
-              `;
+              `,
+              );
               const startTime: Date =
                 (startRow?.[0]?.created_at as Date | undefined) ??
                 new Date(Date.now() - 60_000);
@@ -540,14 +550,16 @@ function createSubagentStopHook(agentId: string): HookCallback {
           import("./self-reflection")
             .then(async ({ checkRepeatedFailures }) => {
               const db = getDb();
-              const failureRows = await db<{ result: string }[]>`
+              const failureRows = await withDbTimeout(
+                db<{ result: string }[]>`
                 SELECT result FROM subagent_audit_log
                 WHERE parent_agent_id = ${agentId}
                   AND session_id = ${sessionId}
                   AND status IN ('error', 'timeout')
                 ORDER BY created_at DESC
                 LIMIT 5
-              `;
+              `,
+              );
               const recentErrors = (failureRows ?? []).map((r) =>
                 String(r.result ?? "").slice(0, 200),
               );
@@ -661,9 +673,13 @@ function createUserPromptHook(agentId: string): HookCallback {
             log.warn("User prompt log insert failed", { error: String(err) }),
         );
 
-        // Classify the task asynchronously
-        classifyTask(prompt, sessionId).catch((err: unknown) =>
-          log.warn("Task classification failed", { error: String(err) }),
+        // Classify the task asynchronously (bounded to 5s to avoid blocking DB shutdown)
+        const classifyTimeout = new Promise<void>((_, reject) =>
+          setTimeout(() => reject(new Error("classify timeout")), 5000),
+        );
+        Promise.race([classifyTask(prompt, sessionId), classifyTimeout]).catch(
+          (err: unknown) =>
+            log.warn("Task classification failed", { error: String(err) }),
         );
 
         // Phase 5: Extract and save user preferences from message

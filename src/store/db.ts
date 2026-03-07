@@ -53,7 +53,10 @@ async function runMigrations(
 
 export async function closeDb(): Promise<void> {
   if (db) {
-    await db.close();
+    const closeTimeout = new Promise<void>((resolve) =>
+      setTimeout(resolve, 2000),
+    );
+    await Promise.race([db.close(), closeTimeout]);
     db = null;
   }
 }
