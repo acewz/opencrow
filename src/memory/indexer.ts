@@ -92,8 +92,27 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
       });
     }
 
-    const newTexts = newIndices.map((i) => texts[i]!);
-    const newHashes = newIndices.map((i) => hashes[i]!);
+    // Filter out tiny chunks that are semantically meaningless
+    const MIN_CHUNK_TOKENS = 50;
+    const filteredIndices = newIndices.filter(
+      (i) => countTokens(texts[i]!) >= MIN_CHUNK_TOKENS,
+    );
+
+    if (filteredIndices.length < newIndices.length) {
+      log.debug("Filtered tiny chunks", {
+        sourceId,
+        removed: newIndices.length - filteredIndices.length,
+        kept: filteredIndices.length,
+      });
+    }
+
+    if (filteredIndices.length === 0) {
+      log.debug("All chunks too small, skipping", { sourceId });
+      return;
+    }
+
+    const newTexts = filteredIndices.map((i) => texts[i]!);
+    const newHashes = filteredIndices.map((i) => hashes[i]!);
 
     let embeddings: Float32Array[] | null = null;
     if (config.embeddingProvider) {
@@ -122,7 +141,7 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
         // ON CONFLICT DO NOTHING + RETURNING: only get id back if row was inserted
         const rows = await tx`
           INSERT INTO memory_chunks (id, source_id, content, chunk_index, token_count, created_at, content_hash)
-          VALUES (${id}, ${sourceId}, ${text}, ${newIndices[i]!}, ${tokenCount}, ${now}, ${contentHash})
+          VALUES (${id}, ${sourceId}, ${text}, ${filteredIndices[i]!}, ${tokenCount}, ${now}, ${contentHash})
           ON CONFLICT (content_hash) DO NOTHING
           RETURNING id
         `;
@@ -158,7 +177,7 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
               payload: {
                 sourceId,
                 agentId,
-                chunkIndex: newIndices[textIndex]!,
+                chunkIndex: filteredIndices[textIndex]!,
                 kind,
                 createdAt: now,
               },
@@ -573,8 +592,18 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
         VALUES (${sourceId}, 'scholar_paper', ${agentId}, ${null}, ${null}, ${metadataJson}, ${now})
       `;
 
+      // Skip papers without abstracts — useless for semantic search
+      const withAbstracts = papers.filter((p) => p.abstract.trim().length > 0);
+      if (withAbstracts.length < papers.length) {
+        log.debug("Filtered scholar papers without abstracts", {
+          total: papers.length,
+          withAbstracts: withAbstracts.length,
+          skipped: papers.length - withAbstracts.length,
+        });
+      }
+
       const profile = getChunkProfile("scholar_paper");
-      const chunks = papers.flatMap((p) => {
+      const chunks = withAbstracts.flatMap((p) => {
         const authors =
           p.authors.length > 0
             ? `\nAuthors: ${p.authors.slice(0, 10).join(", ")}`

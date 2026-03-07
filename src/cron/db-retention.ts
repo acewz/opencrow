@@ -92,6 +92,61 @@ export async function runDbRetention(): Promise<RetentionResult> {
     });
   }
 
+  // Clean up empty memory sources (sources with zero chunks)
+  try {
+    const emptyResult = await db`
+      DELETE FROM memory_sources
+      WHERE id NOT IN (SELECT DISTINCT source_id FROM memory_chunks)
+    `;
+    const emptyDeleted = emptyResult.count ?? 0;
+    if (emptyDeleted > 0) {
+      details.push({ table: "memory_sources (empty)", deleted: emptyDeleted });
+      totalDeleted += emptyDeleted;
+      log.info("Retention cleanup", { table: "memory_sources (empty)", deleted: emptyDeleted });
+    }
+  } catch (err) {
+    log.warn("Retention cleanup failed for table", {
+      table: "memory_sources (empty)",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Clean up tiny chunks below 50 tokens (semantically meaningless fragments)
+  try {
+    const tinyResult = await db`
+      DELETE FROM memory_chunks WHERE token_count < 50
+    `;
+    const tinyDeleted = tinyResult.count ?? 0;
+    if (tinyDeleted > 0) {
+      details.push({ table: "memory_chunks (tiny)", deleted: tinyDeleted });
+      totalDeleted += tinyDeleted;
+      log.info("Retention cleanup", { table: "memory_chunks (tiny)", deleted: tinyDeleted });
+    }
+  } catch (err) {
+    log.warn("Retention cleanup failed for table", {
+      table: "memory_chunks (tiny)",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
+  // Clean up oversized chunks (>2000 tokens — entire conversations stored as single chunks)
+  try {
+    const oversizedResult = await db`
+      DELETE FROM memory_chunks WHERE token_count > 2000
+    `;
+    const oversizedDeleted = oversizedResult.count ?? 0;
+    if (oversizedDeleted > 0) {
+      details.push({ table: "memory_chunks (oversized)", deleted: oversizedDeleted });
+      totalDeleted += oversizedDeleted;
+      log.info("Retention cleanup", { table: "memory_chunks (oversized)", deleted: oversizedDeleted });
+    }
+  } catch (err) {
+    log.warn("Retention cleanup failed for table", {
+      table: "memory_chunks (oversized)",
+      error: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   log.info("Retention cleanup complete", { totalDeleted, tables: details.length });
   return { totalDeleted, details };
 }
