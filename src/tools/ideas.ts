@@ -70,7 +70,7 @@ export function createSaveIdeaTool(agentId: string, memoryManager?: MemoryManage
       const rawScore = input.quality_score != null ? Number(input.quality_score) : undefined;
       const qualityScore = rawScore != null && !isNaN(rawScore)
         ? Math.min(Math.max(rawScore, 1), 5)
-        : undefined;
+        : 1;
 
       try {
         const idea = await insertIdea({
@@ -80,7 +80,7 @@ export function createSaveIdeaTool(agentId: string, memoryManager?: MemoryManage
           reasoning,
           sources_used: sourcesUsed,
           category,
-          quality_score: qualityScore ?? null,
+          quality_score: qualityScore,
         });
 
         // Index into Qdrant for semantic dedup
