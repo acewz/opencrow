@@ -26,6 +26,7 @@ export interface GoogleTrendsScraper {
   start(): void;
   stop(): void;
   scrapeNow(): Promise<ScrapeResult>;
+  backfillRag(): Promise<{ indexed: number; error?: string }>;
 }
 
 interface ScrapeResult {
@@ -192,7 +193,7 @@ async function fetchFeed(
   return rows;
 }
 
-function rowsToTrendsForIndex(
+export function rowsToTrendsForIndex(
   rows: readonly TrendRow[],
 ): readonly TrendForIndex[] {
   return rows.map((t) => {
@@ -324,6 +325,40 @@ export function createGoogleTrendsScraper(config?: {
         return await scrape();
       } finally {
         running = false;
+      }
+    },
+
+    async backfillRag(): Promise<{ indexed: number; error?: string }> {
+      if (!config?.memoryManager) {
+        return { indexed: 0, error: "memoryManager not configured" };
+      }
+
+      const BATCH_SIZE = 50;
+      let totalIndexed = 0;
+
+      try {
+        while (true) {
+          const unindexed = await getUnindexedTrends(BATCH_SIZE);
+          if (unindexed.length === 0) break;
+
+          const forIndex = rowsToTrendsForIndex(unindexed);
+          const ids = unindexed.map((t) => t.id);
+          await config.memoryManager.indexTrends(AGENT_ID, forIndex);
+          await markTrendsIndexed(ids);
+          totalIndexed += forIndex.length;
+
+          log.info("Google Trends RAG backfill batch", {
+            batchSize: forIndex.length,
+            totalSoFar: totalIndexed,
+          });
+        }
+
+        log.info("Google Trends RAG backfill complete", { totalIndexed });
+        return { indexed: totalIndexed };
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        log.error("Google Trends RAG backfill failed", { error: msg, totalIndexed });
+        return { indexed: totalIndexed, error: msg };
       }
     },
   };
