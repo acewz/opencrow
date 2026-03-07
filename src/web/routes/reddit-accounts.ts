@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getDb } from "../../store/db";
 import { createLogger } from "../../logger";
+import { verifyRedditAccount } from "./verify-accounts";
 
 const log = createLogger("reddit-accounts");
 
@@ -212,63 +213,9 @@ export function createRedditAccountRoutes(): Hono {
     const now = Math.floor(Date.now() / 1000);
 
     try {
-      const scrapersDir = `${import.meta.dir}/../../../scrapers`;
-      const venvPython = `${scrapersDir}/.venv/bin/python3`;
-      const pythonBin = (await Bun.file(venvPython).exists())
-        ? venvPython
-        : "python3";
+      const result = await verifyRedditAccount(account.cookies_json);
 
-      const proc = Bun.spawn(
-        [pythonBin, "-m", "scrapers.reddit.verify"],
-        {
-          cwd: scrapersDir,
-          env: { ...process.env, PYTHONPATH: "src" },
-          stdin: "pipe",
-          stdout: "pipe",
-          stderr: "pipe",
-        },
-      );
-
-      proc.stdin.write(account.cookies_json);
-      proc.stdin.end();
-
-      const [stdout, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-      ]);
-      const exitCode = await proc.exited;
-
-      log.info("Reddit verify subprocess done", {
-        id,
-        exitCode,
-        stdoutLen: stdout.length,
-        stderrLen: stderr.length,
-      });
-
-      if (exitCode !== 0 || !stdout.trim()) {
-        const errMsg =
-          stderr.slice(0, 500) ||
-          stdout.slice(0, 500) ||
-          "Verification process failed";
-        log.warn("Reddit verify script failed", {
-          id,
-          exitCode,
-          stderr: stderr.slice(0, 200),
-        });
-        await db`
-          UPDATE reddit_accounts SET
-            status = 'error',
-            error_message = ${errMsg},
-            updated_at = ${now}
-          WHERE id = ${id}
-        `;
-        const updated = (await db`SELECT * FROM reddit_accounts WHERE id = ${id}`) as RedditAccountRow[];
-        return c.json({ success: true, data: redactAccount(updated[0]!) });
-      }
-
-      const lines = stdout.trim().split("\n");
-      const jsonLine = lines[lines.length - 1]!;
-      const result = JSON.parse(jsonLine);
+      log.info("Reddit account verify result", { id, ok: result.ok });
 
       if (result.ok) {
         await db`

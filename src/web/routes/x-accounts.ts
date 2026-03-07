@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { getDb } from "../../store/db";
 import { createLogger } from "../../logger";
+import { verifyXAccount } from "./verify-accounts";
 
 const log = createLogger("x-accounts");
 
@@ -286,69 +287,9 @@ export function createXAccountRoutes(): Hono {
     const now = Math.floor(Date.now() / 1000);
 
     try {
-      const scrapersDir = `${import.meta.dir}/../../../scrapers`;
-      const venvPython = `${scrapersDir}/.venv/bin/python3`;
-      const pythonBin = (await Bun.file(venvPython).exists())
-        ? venvPython
-        : "python3";
+      const result = await verifyXAccount(account.auth_token, account.ct0);
 
-      const proc = Bun.spawn([pythonBin, "-m", "scrapers.x.verify"], {
-        cwd: scrapersDir,
-        env: { ...process.env, PYTHONPATH: "src" },
-        stdin: "pipe",
-        stdout: "pipe",
-        stderr: "pipe",
-      });
-      proc.stdin.write(
-        JSON.stringify({ auth_token: account.auth_token, ct0: account.ct0 }),
-      );
-      proc.stdin.end();
-
-      const [stdout, stderr] = await Promise.all([
-        new Response(proc.stdout).text(),
-        new Response(proc.stderr).text(),
-      ]);
-      const exitCode = await proc.exited;
-
-      log.info("Verify subprocess done", {
-        id,
-        exitCode,
-        stdoutLen: stdout.length,
-        stderrLen: stderr.length,
-      });
-
-      if (stderr.length > 0) {
-        await Bun.write("/tmp/opencrow-verify-debug.json", stderr);
-        log.info("Verify stderr dumped to /tmp/opencrow-verify-debug.json");
-      }
-
-      if (exitCode !== 0 || !stdout.trim()) {
-        const errMsg =
-          stderr.slice(0, 500) ||
-          stdout.slice(0, 500) ||
-          "Verification process failed";
-        log.warn("Verify script failed", {
-          id,
-          exitCode,
-          stderr: stderr.slice(0, 200),
-          stdout: stdout.slice(0, 200),
-        });
-        await db`
-          UPDATE x_accounts SET
-            status = 'error',
-            error_message = ${errMsg},
-            updated_at = ${now}
-          WHERE id = ${id}
-        `;
-        const updated =
-          (await db`SELECT * FROM x_accounts WHERE id = ${id}`) as XAccountRow[];
-        return c.json({ success: true, data: redactAccount(updated[0]!) });
-      }
-
-      // Extract last line as JSON (skip any log lines that may leak to stdout)
-      const lines = stdout.trim().split("\n");
-      const jsonLine = lines[lines.length - 1]!;
-      const result = JSON.parse(jsonLine);
+      log.info("X account verify result", { id, ok: result.ok });
 
       if (result.ok) {
         await db`
@@ -365,9 +306,6 @@ export function createXAccountRoutes(): Hono {
         log.info("X account verified", { id, username: result.username });
       } else {
         const errorMsg = result.error ?? "Unknown verification error";
-        if (result.debug_keys) {
-          log.info("Verify debug keys", { id, keys: result.debug_keys });
-        }
         const status: XAccountStatus = errorMsg.includes("expired")
           ? "expired"
           : "error";
