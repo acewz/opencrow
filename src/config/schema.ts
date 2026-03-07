@@ -108,6 +108,7 @@ export const agentDefinitionSchema = z.object({
       qdrant: z.boolean().optional(),
       braveSearch: z.boolean().optional(),
       firecrawl: z.boolean().optional(),
+      serena: z.boolean().optional(),
     })
     .optional(),
   hooks: z

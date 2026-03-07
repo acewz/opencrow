@@ -35,6 +35,7 @@ export interface McpServersConfig {
   qdrant?: boolean;
   braveSearch?: boolean;
   firecrawl?: boolean;
+  serena?: boolean;
 }
 
 export interface HooksConfig {

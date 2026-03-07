@@ -578,6 +578,21 @@ export function DetailPanel({
                       {detail.mcpServers?.firecrawl ? "Enabled" : "Off"}
                     </span>
                   </div>
+                  <div className="flex flex-col gap-1 rounded-lg bg-bg-raised p-2.5 border border-border">
+                    <span className="text-xs font-semibold text-faint uppercase tracking-widest">
+                      Serena
+                    </span>
+                    <span
+                      className={cn(
+                        "text-sm break-words",
+                        detail.mcpServers?.serena
+                          ? "text-success font-semibold"
+                          : "text-faint",
+                      )}
+                    >
+                      {detail.mcpServers?.serena ? "Enabled" : "Off"}
+                    </span>
+                  </div>
                 </div>
               </div>
 

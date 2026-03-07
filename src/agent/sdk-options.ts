@@ -188,6 +188,20 @@ export function buildMcpServers(
           },
         }
       : {}),
+    ...(options.serenaEnabled
+      ? {
+          serena: {
+            type: "stdio" as const,
+            command: `${process.env.HOME}/.local/bin/uvx`,
+            args: [
+              "--from",
+              "git+https://github.com/oraios/serena",
+              "serena",
+              "start-mcp-server",
+            ],
+          },
+        }
+      : {}),
   };
 }
 
@@ -210,5 +224,6 @@ export function buildAllowedTools(options: AgentOptions): string[] {
     ...(options.qdrantEnabled ? ["mcp__qdrant__*"] : []),
     ...(options.braveSearchEnabled ? ["mcp__brave-search__*"] : []),
     ...(options.firecrawlEnabled ? ["mcp__firecrawl__*"] : []),
+    ...(options.serenaEnabled ? ["mcp__serena__*"] : []),
   ];
 }

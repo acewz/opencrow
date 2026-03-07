@@ -140,6 +140,7 @@ function buildAgentOptions(
     qdrantEnabled: agent.mcpServers?.qdrant ?? false,
     braveSearchEnabled: agent.mcpServers?.braveSearch ?? false,
     firecrawlEnabled: agent.mcpServers?.firecrawl ?? false,
+    serenaEnabled: agent.mcpServers?.serena ?? false,
     hooksConfig: agent.hooks,
     cwd: cwd ?? process.cwd(),
   };

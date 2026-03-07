@@ -192,6 +192,9 @@ export function AgentFormModal({
   const [mcpFirecrawl, setMcpFirecrawl] = useState(
     initial?.mcpServers?.firecrawl ?? false,
   );
+  const [mcpSerena, setMcpSerena] = useState(
+    initial?.mcpServers?.serena ?? false,
+  );
   const [hookAuditLog, setHookAuditLog] = useState(
     initial?.hooks?.auditLog !== false,
   );
@@ -303,7 +306,8 @@ export function AgentFormModal({
             mcpGit ||
             mcpQdrant ||
             mcpBraveSearch ||
-            mcpFirecrawl
+            mcpFirecrawl ||
+            mcpSerena
               ? {
                   browser: mcpBrowser || undefined,
                   github: mcpGithub || undefined,
@@ -315,6 +319,7 @@ export function AgentFormModal({
                   qdrant: mcpQdrant || undefined,
                   braveSearch: mcpBraveSearch || undefined,
                   firecrawl: mcpFirecrawl || undefined,
+                  serena: mcpSerena || undefined,
                 }
               : undefined,
           hooks: { auditLog: hookAuditLog, notifications: hookNotifications },
@@ -345,6 +350,7 @@ export function AgentFormModal({
             qdrant: mcpQdrant || undefined,
             braveSearch: mcpBraveSearch || undefined,
             firecrawl: mcpFirecrawl || undefined,
+            serena: mcpSerena || undefined,
           },
           hooks: { auditLog: hookAuditLog, notifications: hookNotifications },
           telegramBotToken: telegramBotToken.trim() || undefined,
@@ -1024,6 +1030,19 @@ export function AgentFormModal({
                         />
                         <span className="select-none">
                           Firecrawl (Scraping)
+                        </span>
+                      </label>
+                    </div>
+                    <div className="flex items-center mb-5">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-accent cursor-pointer"
+                          checked={mcpSerena}
+                          onChange={(e) => setMcpSerena(e.target.checked)}
+                        />
+                        <span className="select-none">
+                          Serena (Code Navigation)
                         </span>
                       </label>
                     </div>

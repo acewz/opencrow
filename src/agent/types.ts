@@ -143,6 +143,7 @@ export interface AgentOptions {
   readonly braveSearchEnabled?: boolean;
   readonly firecrawlEnabled?: boolean;
   readonly webSearchEnabled?: boolean;
+  readonly serenaEnabled?: boolean;
   readonly hooksConfig?: import("../agents/types").HooksConfig;
   readonly sdkHooks?: Record<string, unknown>;
   readonly abortSignal?: AbortSignal;

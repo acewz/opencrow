@@ -21,6 +21,7 @@ export interface McpServersConfig {
   readonly braveSearch?: boolean;
   readonly firecrawl?: boolean;
   readonly webSearch?: boolean;
+  readonly serena?: boolean;
 }
 
 export interface HooksConfig {
