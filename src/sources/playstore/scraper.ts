@@ -14,7 +14,7 @@ import {
 const log = createLogger("playstore-scraper");
 
 const TICK_INTERVAL_MS = 3_600_000; // 60 minutes
-const REQUEST_DELAY_MS = 2_500; // 2.5 seconds between API calls
+const REQUEST_DELAY_MS = 4_000; // 4 seconds between API calls
 const TOP_APPS_PER_LIST = 5; // fetch reviews for top N from each list/category
 
 const PLAYSTORE_AGENT_ID = "playstore";
@@ -269,11 +269,10 @@ export function createPlayStoreScraper(config?: {
       const topFreeCollection = gplay.collection.TOP_FREE ?? "topselling_free";
       const topPaidCollection = gplay.collection.TOP_PAID ?? "topselling_paid";
 
-      // Fetch overall top-free and top-paid
-      const [freeApps, paidApps] = await Promise.all([
-        fetchList(topFreeCollection, "top-free"),
-        fetchList(topPaidCollection, "top-paid"),
-      ]);
+      // Fetch overall top-free and top-paid (sequential to avoid rate limits)
+      const freeApps = await fetchList(topFreeCollection, "top-free");
+      await delay(REQUEST_DELAY_MS);
+      const paidApps = await fetchList(topPaidCollection, "top-paid");
 
       const overallRankings = [...freeApps, ...paidApps];
       let rankingsCount = await upsertRankings(overallRankings);
@@ -290,13 +289,17 @@ export function createPlayStoreScraper(config?: {
         await delay(REQUEST_DELAY_MS);
 
         const listType = `top-free-${cat.id}`;
-        const apps = await fetchList(topFreeCollection, listType, cat.id);
-        categoryRankings.push(...apps);
-
-        log.info("Fetched Play Store category rankings", {
-          category: cat.name,
-          count: apps.length,
-        });
+        try {
+          const apps = await fetchList(topFreeCollection, listType, cat.id);
+          categoryRankings.push(...apps);
+          log.info("Fetched Play Store category", {
+            category: cat.name,
+            count: apps.length,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.warn("Play Store category fetch failed", { category: cat.name, error: msg });
+        }
       }
 
       if (categoryRankings.length > 0) {
@@ -330,15 +333,22 @@ export function createPlayStoreScraper(config?: {
 
       let totalReviews = 0;
 
+      log.info("Fetching Play Store reviews", { appsToReview: appsToReview.length });
+
       for (const app of appsToReview) {
         if (!app.id) continue;
 
         await delay(REQUEST_DELAY_MS);
 
-        const reviews = await fetchReviewsForApp(app.id, app.name);
-        if (reviews.length > 0) {
-          const count = await upsertReviews(reviews);
-          totalReviews += count;
+        try {
+          const reviews = await fetchReviewsForApp(app.id, app.name);
+          if (reviews.length > 0) {
+            const count = await upsertReviews(reviews);
+            totalReviews += count;
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.warn("Play Store review fetch failed", { appId: app.id, error: msg });
         }
       }
 
