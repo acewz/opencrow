@@ -8,6 +8,7 @@ import type {
 import { createTelegramHandler } from "./handler";
 import { markdownToTelegramHtml } from "./format";
 import { createLogger } from "../../logger";
+import { createSendQueue } from "./send-queue";
 
 function tokenTag(token: string): string {
   const parts = token.split(":");
@@ -24,6 +25,7 @@ function isGetUpdatesConflict(err: unknown): boolean {
 export function createTelegramChannel(botToken: string): Channel {
   const log = createLogger(`tg:${tokenTag(botToken)}`);
   const bot = new Bot(botToken);
+  const sendQ = createSendQueue();
   let messageHandler: MessageHandler | null = null;
   let connected = false;
   let connecting = false;
@@ -170,18 +172,22 @@ export function createTelegramChannel(botToken: string): Channel {
           method: "sendPhoto" | "sendDocument" | "sendAudio" | "sendVideo",
         ): Promise<number> => {
           try {
-            const msg = await bot.api[method](numericChatId, inputFile, {
-              caption,
-              parse_mode: "HTML",
-            });
+            const msg = await sendQ.enqueue(() =>
+              bot.api[method](numericChatId, inputFile, {
+                caption,
+                parse_mode: "HTML",
+              }) as Promise<{ message_id: number }>,
+            );
             return msg.message_id;
           } catch {
             log.warn("HTML parse failed in caption, retrying as plain text", {
               chatId,
             });
-            const msg = await bot.api[method](numericChatId, inputFile, {
-              caption: rawCaption,
-            });
+            const msg = await sendQ.enqueue(() =>
+              bot.api[method](numericChatId, inputFile, {
+                caption: rawCaption,
+              }) as Promise<{ message_id: number }>,
+            );
             return msg.message_id;
           }
         };
@@ -217,16 +223,20 @@ export function createTelegramChannel(botToken: string): Channel {
           : markdownToTelegramHtml(content.text);
 
         try {
-          const msg = await bot.api.sendMessage(numericChatId, htmlText, {
-            parse_mode: "HTML",
-            reply_markup,
-          });
+          const msg = await sendQ.enqueue(() =>
+            bot.api.sendMessage(numericChatId, htmlText, {
+              parse_mode: "HTML",
+              reply_markup,
+            }),
+          );
           return msg.message_id;
         } catch {
           log.warn("HTML parse failed, retrying as plain text", { chatId });
-          const msg = await bot.api.sendMessage(numericChatId, content.text, {
-            reply_markup,
-          });
+          const msg = await sendQ.enqueue(() =>
+            bot.api.sendMessage(numericChatId, content.text!, {
+              reply_markup,
+            }),
+          );
           return msg.message_id;
         }
       }
@@ -237,13 +247,17 @@ export function createTelegramChannel(botToken: string): Channel {
         e instanceof Error && e.message.includes("message is not modified");
 
       try {
-        await bot.api.editMessageText(Number(chatId), messageId, text, {
-          parse_mode: "HTML",
-        });
+        await sendQ.enqueue(() =>
+          bot.api.editMessageText(Number(chatId), messageId, text, {
+            parse_mode: "HTML",
+          }),
+        );
       } catch (err) {
         if (isNotModified(err)) return;
         try {
-          await bot.api.editMessageText(Number(chatId), messageId, text);
+          await sendQ.enqueue(() =>
+            bot.api.editMessageText(Number(chatId), messageId, text),
+          );
         } catch (retryErr) {
           if (isNotModified(retryErr)) return;
           log.warn("editMessage failed", {
@@ -257,7 +271,9 @@ export function createTelegramChannel(botToken: string): Channel {
 
     async deleteMessage(chatId: string, messageId: number) {
       try {
-        await bot.api.deleteMessage(Number(chatId), messageId);
+        await sendQ.enqueue(() =>
+          bot.api.deleteMessage(Number(chatId), messageId),
+        );
       } catch {
         // best-effort — message may already be gone
       }
@@ -265,7 +281,9 @@ export function createTelegramChannel(botToken: string): Channel {
 
     async sendTyping(chatId: string) {
       try {
-        await bot.api.sendChatAction(Number(chatId), "typing");
+        await sendQ.enqueue(() =>
+          bot.api.sendChatAction(Number(chatId), "typing"),
+        );
       } catch {
         // non-fatal
       }
