@@ -1,71 +1,290 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { apiFetch } from "../api";
-import { PageHeader, LoadingState, EmptyState, FeedRow, Button } from "../components";
+import {
+  PageHeader,
+  LoadingState,
+  EmptyState,
+  FilterTabs,
+  Button,
+} from "../components";
+import { cn } from "../lib/cn";
+
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AppRankingRow {
-  id: string;
-  name: string;
-  artist: string;
-  category: string;
-  rank: number;
-  list_type: string;
-  icon_url: string;
-  store_url: string;
-  updated_at: number;
-  indexed_at: number | null;
+  readonly id: string;
+  readonly name: string;
+  readonly artist: string;
+  readonly category: string;
+  readonly rank: number;
+  readonly list_type: string;
+  readonly icon_url: string;
+  readonly store_url: string;
+  readonly description: string;
+  readonly price: string;
+  readonly bundle_id: string;
+  readonly release_date: string;
+  readonly updated_at: number;
+  readonly indexed_at: number | null;
 }
 
 interface AppReviewRow {
-  id: string;
-  app_id: string;
-  app_name: string;
-  author: string;
-  rating: number;
-  title: string;
-  content: string;
-  version: string;
-  first_seen_at: number;
-  indexed_at: number | null;
+  readonly id: string;
+  readonly app_id: string;
+  readonly app_name: string;
+  readonly author: string;
+  readonly rating: number;
+  readonly title: string;
+  readonly content: string;
+  readonly version: string;
+  readonly first_seen_at: number;
+  readonly indexed_at: number | null;
 }
 
 interface StatsData {
-  total_apps: number;
-  total_reviews: number;
-  last_updated_at: number | null;
+  readonly total_apps: number;
+  readonly total_reviews: number;
+  readonly total_categories: number;
+  readonly last_updated_at: number | null;
 }
 
-type Tab = "rankings" | "reviews";
-type ListFilter = "all" | "top-free" | "top-paid";
+type MainTab = "rankings" | "reviews";
+type OverallFilter = "all" | "top-free" | "top-paid";
 
-function ratingStars(rating: number): string {
-  return "\u2605".repeat(rating) + "\u2606".repeat(5 - rating);
-}
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function formatTime(epoch: number | null): string {
   if (!epoch) return "Never";
   return new Date(epoch * 1000).toLocaleString();
 }
 
+function isFree(price: string | null | undefined): boolean {
+  if (!price) return true;
+  const lower = price.toLowerCase().trim();
+  return lower === "0" || lower === "0.00" || lower === "free";
+}
+
+function listTypeLabel(listType: string): string {
+  if (listType === "top-free") return "Top Free";
+  if (listType === "top-paid") return "Top Paid";
+  if (listType.startsWith("top-free-")) return "Top Free";
+  if (listType.startsWith("top-paid-")) return "Top Paid";
+  return listType;
+}
+
+// ─── AppCard ──────────────────────────────────────────────────────────────────
+
+interface AppCardProps {
+  readonly app: AppRankingRow;
+}
+
+function AppCard({ app }: AppCardProps) {
+  const free = isFree(app.price);
+
+  return (
+    <a
+      href={app.store_url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-start gap-3 p-3 rounded-lg border border-border-2 bg-bg-1 hover:bg-bg-2 hover:border-border-hover transition-colors duration-150 cursor-pointer no-underline group"
+    >
+      {/* Rank */}
+      <span className="font-mono text-sm font-bold text-muted w-6 shrink-0 pt-1 text-right leading-none">
+        {app.rank}
+      </span>
+
+      {/* Icon */}
+      <div className="w-10 h-10 shrink-0 rounded-lg border border-border-2 bg-bg-2 overflow-hidden">
+        {app.icon_url ? (
+          <img
+            src={app.icon_url}
+            alt={app.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-faint text-xs">
+            ?
+          </div>
+        )}
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-start gap-2 flex-wrap">
+          <span className="font-semibold text-sm text-foreground group-hover:text-accent transition-colors truncate leading-snug">
+            {app.name}
+          </span>
+          <span
+            className={cn(
+              "shrink-0 text-xs font-medium px-1.5 py-0.5 rounded font-mono leading-none",
+              free
+                ? "bg-green-500/15 text-green-400"
+                : "bg-accent/15 text-accent",
+            )}
+          >
+            {free ? "Free" : app.price}
+          </span>
+        </div>
+        <div className="text-xs text-muted mt-0.5 truncate">{app.artist}</div>
+        {app.category && (
+          <span className="inline-block mt-1 text-xs text-faint bg-bg-3 px-2 py-0.5 rounded-full leading-none">
+            {app.category}
+          </span>
+        )}
+        {app.description && (
+          <p className="text-xs text-muted mt-1 leading-snug line-clamp-2 m-0">
+            {app.description}
+          </p>
+        )}
+      </div>
+    </a>
+  );
+}
+
+// ─── GroupedRankings ──────────────────────────────────────────────────────────
+
+interface GroupedRankingsProps {
+  readonly rankings: AppRankingRow[];
+}
+
+function GroupedRankings({ rankings }: GroupedRankingsProps) {
+  const groups = rankings.reduce<Record<string, AppRankingRow[]>>((acc, app) => {
+    const key = app.list_type;
+    return { ...acc, [key]: [...(acc[key] ?? []), app] };
+  }, {});
+
+  const sortedKeys = Object.keys(groups).sort();
+
+  if (sortedKeys.length === 0) {
+    return <EmptyState title="No rankings" description="No rankings data yet." />;
+  }
+
+  return (
+    <div className="flex flex-col gap-8">
+      {sortedKeys.map((listType) => {
+        const apps = groups[listType] ?? [];
+        const firstApp = apps[0];
+        const groupLabel =
+          firstApp?.category
+            ? `${listTypeLabel(listType)} — ${firstApp.category}`
+            : listTypeLabel(listType);
+        return (
+          <section key={listType}>
+            <h3 className="text-sm font-semibold text-muted uppercase tracking-wider mb-3 m-0">
+              {groupLabel}
+              <span className="ml-2 font-mono text-xs text-faint bg-bg-2 px-2 py-0.5 rounded">
+                {apps.length}
+              </span>
+            </h3>
+            <div className="grid gap-2 grid-cols-1 lg:grid-cols-2">
+              {apps.map((app) => (
+                <AppCard key={`${app.id}-${app.list_type}`} app={app} />
+              ))}
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── FlatRankings ─────────────────────────────────────────────────────────────
+
+interface FlatRankingsProps {
+  readonly rankings: AppRankingRow[];
+}
+
+function FlatRankings({ rankings }: FlatRankingsProps) {
+  if (rankings.length === 0) {
+    return <EmptyState title="No rankings" description="No apps for this filter." />;
+  }
+  return (
+    <div className="grid gap-2 grid-cols-1 lg:grid-cols-2">
+      {rankings.map((app) => (
+        <AppCard key={`${app.id}-${app.list_type}`} app={app} />
+      ))}
+    </div>
+  );
+}
+
+// ─── ReviewCard ───────────────────────────────────────────────────────────────
+
+interface ReviewCardProps {
+  readonly review: AppReviewRow;
+}
+
+function ReviewCard({ review }: ReviewCardProps) {
+  const stars = Array.from({ length: 5 }, (_, i) => i < review.rating);
+  return (
+    <div className="p-3 rounded-lg border border-border-2 bg-bg-1 flex flex-col gap-1.5">
+      <div className="flex items-start justify-between gap-2">
+        <span className="font-semibold text-sm text-foreground leading-snug">
+          {review.title || "(No title)"}
+        </span>
+        <span className="flex shrink-0 gap-0.5 mt-0.5">
+          {stars.map((filled, i) => (
+            <span
+              key={i}
+              className={cn(
+                "text-sm leading-none",
+                filled ? "text-yellow-400" : "text-faint",
+              )}
+            >
+              ★
+            </span>
+          ))}
+        </span>
+      </div>
+      {review.content && (
+        <p className="text-xs text-muted leading-snug line-clamp-3 m-0">
+          {review.content}
+        </p>
+      )}
+      <div className="flex items-center gap-2 text-xs text-faint flex-wrap">
+        <span className="font-medium text-muted">{review.app_name}</span>
+        {review.author && <span>· {review.author}</span>}
+        {review.version && <span>· v{review.version}</span>}
+        {review.first_seen_at > 0 && (
+          <span>· {formatTime(review.first_seen_at)}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── AppStore (main) ──────────────────────────────────────────────────────────
+
+const OVERALL_CHIPS = [
+  { id: "all", label: "All" },
+  { id: "top-free", label: "Top Free" },
+  { id: "top-paid", label: "Top Paid" },
+] as const;
+
+const MAIN_TABS = [
+  { id: "rankings", label: "Rankings" },
+  { id: "reviews", label: "Reviews" },
+] as const;
+
 export default function AppStore() {
-  const [tab, setTab] = useState<Tab>("rankings");
-  const [listFilter, setListFilter] = useState<ListFilter>("all");
+  const [mainTab, setMainTab] = useState<MainTab>("rankings");
+  const [overallFilter, setOverallFilter] = useState<OverallFilter>("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [rankings, setRankings] = useState<AppRankingRow[]>([]);
   const [reviews, setReviews] = useState<AppReviewRow[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scraping, setScraping] = useState(false);
 
-  useEffect(() => {
-    fetchAll();
-    const interval = setInterval(fetchAll, 30_000);
-    return () => clearInterval(interval);
-  }, [listFilter]);
-
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     try {
-      const listParam = listFilter === "all" ? "" : `&list_type=${listFilter}`;
+      const params = new URLSearchParams({ limit: "100" });
+      if (overallFilter !== "all") params.set("list_type", overallFilter);
+      if (categoryFilter !== "all") params.set("category", categoryFilter);
+
       const [rankingsRes, reviewsRes, statsRes] = await Promise.all([
         apiFetch<{ success: boolean; data: AppRankingRow[] }>(
-          `/api/appstore/rankings?limit=100${listParam}`,
+          `/api/appstore/rankings?${params.toString()}`,
         ),
         apiFetch<{ success: boolean; data: AppReviewRow[] }>(
           "/api/appstore/reviews?limit=100",
@@ -78,106 +297,138 @@ export default function AppStore() {
       if (reviewsRes.success) setReviews(reviewsRes.data);
       if (statsRes.success) setStats(statsRes.data);
     } catch {
-      // ignore
+      // silently ignore
     } finally {
       setLoading(false);
     }
+  }, [overallFilter, categoryFilter]);
+
+  useEffect(() => {
+    setLoading(true);
+    fetchAll();
+    const interval = setInterval(fetchAll, 30_000);
+    return () => clearInterval(interval);
+  }, [fetchAll]);
+
+  async function handleScrapeNow() {
+    setScraping(true);
+    try {
+      await apiFetch("/api/appstore/scrape-now", { method: "POST" });
+      await fetchAll();
+    } catch {
+      // ignore
+    } finally {
+      setScraping(false);
+    }
   }
 
-  if (loading) {
-    return <LoadingState message="Loading..." />;
-  }
+  const availableCategories: string[] = Array.from(
+    new Set(rankings.map((r) => r.category).filter(Boolean)),
+  ).sort();
+
+  const categoryChips = [
+    { id: "all", label: "All Categories" },
+    ...availableCategories.map((c) => ({ id: c, label: c })),
+  ];
+
+  const tabsWithCounts = MAIN_TABS.map((t) => ({
+    ...t,
+    count: t.id === "rankings" ? rankings.length : reviews.length,
+  }));
+
+  if (loading) return <LoadingState message="Loading App Store data…" />;
+
+  const subtitle = stats
+    ? `${stats.total_apps.toLocaleString()} apps · ${stats.total_reviews.toLocaleString()} reviews · ${stats.total_categories ?? 0} categories · Updated ${formatTime(stats.last_updated_at)}`
+    : undefined;
 
   return (
     <div>
       <PageHeader
         title="App Store"
-        subtitle={
-          stats &&
-          `${stats.total_apps} apps | ${stats.total_reviews} reviews | Last updated: ${formatTime(stats.last_updated_at)}`
-        }
+        subtitle={subtitle}
         actions={
-          <div className="flex gap-2 items-center">
-            <Button
-              size="sm"
-              variant={tab === "rankings" ? "primary" : "ghost"}
-              onClick={() => setTab("rankings")}
-            >
-              Rankings
-            </Button>
-            <Button
-              size="sm"
-              variant={tab === "reviews" ? "primary" : "ghost"}
-              onClick={() => setTab("reviews")}
-            >
-              Reviews
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleScrapeNow}
+            disabled={scraping}
+          >
+            {scraping ? "Scraping…" : "Scrape Now"}
+          </Button>
         }
       />
 
-      {tab === "rankings" && (
+      <FilterTabs
+        tabs={tabsWithCounts}
+        active={mainTab}
+        onChange={(id) => setMainTab(id as MainTab)}
+      />
+
+      {mainTab === "rankings" && (
         <>
-          <div className="flex gap-2 mb-3">
-            {(["all", "top-free", "top-paid"] as const).map((f) => (
-              <Button
-                key={f}
-                size="sm"
-                variant={listFilter === f ? "primary" : "ghost"}
-                onClick={() => setListFilter(f)}
+          {/* Overall filter chips */}
+          <div className="flex gap-1.5 flex-wrap mb-3">
+            {OVERALL_CHIPS.map((chip) => (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => {
+                  setOverallFilter(chip.id as OverallFilter);
+                  setCategoryFilter("all");
+                }}
+                className={cn(
+                  "px-3 py-1.5 rounded-lg text-sm font-medium cursor-pointer transition-colors duration-150 border",
+                  overallFilter === chip.id
+                    ? "bg-accent text-white border-accent font-semibold"
+                    : "bg-transparent border-border-2 text-muted hover:bg-bg-2 hover:border-border-hover hover:text-foreground",
+                )}
               >
-                {f === "all" ? "All" : f === "top-free" ? "Top Free" : "Top Paid"}
-              </Button>
+                {chip.label}
+              </button>
             ))}
           </div>
 
-          {rankings.length === 0 ? (
-            <EmptyState description="No rankings data yet." />
-          ) : (
-            <div className="flex flex-col gap-0.5">
-              {rankings.map((app) => (
-                <FeedRow
-                  key={`${app.id}-${app.list_type}`}
-                  rank={app.rank}
-                  title={app.name}
-                  url={app.store_url}
-                  meta={
-                    <>
-                      <span>{app.artist}</span>
-                      {app.category && <span> | {app.category}</span>}
-                      <span> | {app.list_type}</span>
-                    </>
-                  }
-                />
+          {/* Category chips — only when a specific list type is selected and data is available */}
+          {overallFilter !== "all" && availableCategories.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap mb-5">
+              {categoryChips.map((chip) => (
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setCategoryFilter(chip.id)}
+                  className={cn(
+                    "px-2.5 py-1 rounded-full text-xs font-medium cursor-pointer transition-colors duration-150 border",
+                    categoryFilter === chip.id
+                      ? "bg-accent/20 text-accent border-accent/40 font-semibold"
+                      : "bg-transparent border-border-2 text-faint hover:bg-bg-2 hover:border-border-hover hover:text-muted",
+                  )}
+                >
+                  {chip.label}
+                </button>
               ))}
             </div>
+          )}
+
+          {overallFilter === "all" ? (
+            <GroupedRankings rankings={rankings} />
+          ) : (
+            <FlatRankings rankings={rankings} />
           )}
         </>
       )}
 
-      {tab === "reviews" && (
+      {mainTab === "reviews" && (
         <>
           {reviews.length === 0 ? (
-            <EmptyState description="No low-rated reviews yet." />
+            <EmptyState
+              title="No reviews"
+              description="No low-rated reviews collected yet."
+            />
           ) : (
-            <div className="flex flex-col gap-0.5">
+            <div className="grid gap-2 grid-cols-1 lg:grid-cols-2">
               {reviews.map((review) => (
-                <FeedRow
-                  key={review.id}
-                  title={review.title || "(No title)"}
-                  meta={
-                    <>
-                      <span>{review.app_name}</span>
-                      {review.author && <span> | by {review.author}</span>}
-                      {review.version && <span> | v{review.version}</span>}
-                    </>
-                  }
-                  stats={
-                    <span className="text-accent font-semibold font-mono">
-                      {ratingStars(review.rating)}
-                    </span>
-                  }
-                />
+                <ReviewCard key={review.id} review={review} />
               ))}
             </div>
           )}

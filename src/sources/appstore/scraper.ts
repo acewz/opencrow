@@ -6,6 +6,8 @@ import {
   getRankings,
   getUnindexedReviews,
   markReviewsIndexed,
+  getUnindexedRankings,
+  markRankingsIndexed,
   type AppRankingRow,
   type AppReviewRow,
 } from "./store";
@@ -14,7 +16,7 @@ const log = createLogger("appstore-scraper");
 
 const TICK_INTERVAL_MS = 3_600_000; // 60 minutes
 const REQUEST_DELAY_MS = 2_000; // 2 seconds between API calls
-const TOP_APPS_PER_LIST = 10; // fetch reviews for top N from each list
+const TOP_APPS_PER_LIST = 5; // fetch reviews for top N from each list/category
 
 const APPSTORE_AGENT_ID = "appstore";
 
@@ -22,6 +24,27 @@ const TOP_FREE_URL =
   "https://rss.applemarketingtools.com/api/v2/us/apps/top-free/25/apps.json";
 const TOP_PAID_URL =
   "https://rss.applemarketingtools.com/api/v2/us/apps/top-paid/25/apps.json";
+
+const ITUNES_CATEGORIES: ReadonlyArray<{
+  readonly id: number;
+  readonly name: string;
+}> = [
+  { id: 6000, name: "Business" },
+  { id: 6002, name: "Utilities" },
+  { id: 6005, name: "Social Networking" },
+  { id: 6007, name: "Productivity" },
+  { id: 6012, name: "Lifestyle" },
+  { id: 6013, name: "Health & Fitness" },
+  { id: 6014, name: "Games" },
+  { id: 6015, name: "Finance" },
+  { id: 6016, name: "Entertainment" },
+  { id: 6017, name: "Education" },
+  { id: 6018, name: "Book" },
+  { id: 6020, name: "Medical" },
+  { id: 6023, name: "Food & Drink" },
+  { id: 6024, name: "Shopping" },
+  { id: 6026, name: "Travel" },
+];
 
 function reviewsUrl(appId: string): string {
   return `https://itunes.apple.com/us/rss/customerreviews/id=${appId}/sortBy=mostRecent/json`;
@@ -41,15 +64,28 @@ interface ScrapeResult {
 }
 
 interface RssAppEntry {
-  readonly id?: { readonly attributes?: { readonly "im:id"?: string } };
+  readonly id?: {
+    readonly label?: string;
+    readonly attributes?: {
+      readonly "im:id"?: string;
+      readonly "im:bundleId"?: string;
+    };
+  };
   readonly "im:name"?: { readonly label?: string };
   readonly "im:artist"?: { readonly label?: string };
   readonly category?: {
     readonly attributes?: { readonly label?: string };
   };
   readonly "im:image"?: ReadonlyArray<{ readonly label?: string }>;
-  readonly link?: {
-    readonly attributes?: { readonly href?: string };
+  readonly link?:
+    | { readonly attributes?: { readonly href?: string } }
+    | ReadonlyArray<{ readonly attributes?: { readonly href?: string } }>;
+  readonly summary?: { readonly label?: string };
+  readonly "im:price"?: {
+    readonly attributes?: { readonly amount?: string };
+  };
+  readonly "im:releaseDate"?: {
+    readonly attributes?: { readonly label?: string };
   };
 }
 
@@ -111,9 +147,72 @@ function parseTopAppsV2(
     list_type: listType,
     icon_url: app.artworkUrl100 ?? "",
     store_url: app.url ?? "",
+    description: "",
+    price: "",
+    bundle_id: "",
+    release_date: "",
     updated_at: now,
     indexed_at: null,
   }));
+}
+
+function itunesLinkHref(
+  link:
+    | { readonly attributes?: { readonly href?: string } }
+    | ReadonlyArray<{ readonly attributes?: { readonly href?: string } }>
+    | undefined,
+): string {
+  if (!link) return "";
+  if (Array.isArray(link)) {
+    return (link as ReadonlyArray<{ attributes?: { href?: string } }>)[0]
+      ?.attributes?.href ?? "";
+  }
+  return (link as { attributes?: { href?: string } }).attributes?.href ?? "";
+}
+
+function parseTopAppsItunes(
+  data: unknown,
+  listType: string,
+): readonly AppRankingRow[] {
+  const feed = (data as Record<string, unknown>)?.feed as
+    | Record<string, unknown>
+    | undefined;
+  if (!feed) return [];
+
+  const rawEntries = feed.entry;
+  if (!rawEntries) return [];
+
+  const entries = (
+    Array.isArray(rawEntries) ? rawEntries : [rawEntries]
+  ) as readonly RssAppEntry[];
+
+  const now = Math.floor(Date.now() / 1000);
+
+  return entries.map((entry, index) => {
+    const appId = entry.id?.attributes?.["im:id"] ?? "";
+    const rawPrice = entry["im:price"]?.attributes?.amount ?? "";
+    const price =
+      rawPrice === "0" || rawPrice === "0.00000" ? "Free" : rawPrice;
+    const images = entry["im:image"] ?? [];
+    const iconUrl = images[images.length - 1]?.label ?? "";
+
+    return {
+      id: appId,
+      name: entry["im:name"]?.label ?? "",
+      artist: entry["im:artist"]?.label ?? "",
+      category: entry.category?.attributes?.label ?? "",
+      rank: index + 1,
+      list_type: listType,
+      icon_url: iconUrl,
+      store_url: itunesLinkHref(entry.link),
+      description: entry.summary?.label ?? "",
+      price,
+      bundle_id: entry.id?.attributes?.["im:bundleId"] ?? "",
+      release_date: entry["im:releaseDate"]?.attributes?.label ?? "",
+      updated_at: now,
+      indexed_at: null,
+    };
+  });
 }
 
 function parseReviews(
@@ -157,6 +256,26 @@ function reviewsToArticlesForIndex(
     content: `App: ${r.app_name} | Rating: ${r.rating}/5 | Review: ${r.title} - ${r.content}`,
     publishedAt: r.first_seen_at,
   }));
+}
+
+function rankingsToArticlesForIndex(
+  rankings: readonly AppRankingRow[],
+): readonly ArticleForIndex[] {
+  return rankings
+    .filter((r) => r.description)
+    .map((r) => ({
+      id: `appstore-ranking-${r.id}-${r.list_type}`,
+      title: `${r.name} by ${r.artist}`,
+      url: r.store_url,
+      sourceName: "appstore",
+      category: "app-ranking",
+      content: `App: ${r.name} | Category: ${r.category} | Price: ${
+        r.price === "0.00000" || r.price === "0" || r.price === "Free"
+          ? "Free"
+          : "$" + r.price
+      } | ${r.description}`,
+      publishedAt: r.updated_at,
+    }));
 }
 
 export function createAppStoreScraper(config?: {
@@ -212,28 +331,97 @@ export function createAppStoreScraper(config?: {
     }
   }
 
+  async function indexUnindexedRankings(): Promise<void> {
+    if (!config?.memoryManager) return;
+
+    try {
+      const unindexed = await getUnindexedRankings(200);
+      if (unindexed.length === 0) return;
+
+      const forIndex = rankingsToArticlesForIndex(unindexed);
+      const ids = unindexed.map((r) => r.id);
+
+      await config.memoryManager.indexArticles(APPSTORE_AGENT_ID, forIndex);
+      await markRankingsIndexed(ids);
+
+      log.info("Indexed rankings into memory", { count: ids.length });
+    } catch (err) {
+      log.error("Failed to index rankings into RAG", { error: err });
+    }
+  }
+
   async function scrape(): Promise<ScrapeResult> {
     try {
-      // Fetch top-free and top-paid lists
+      // Fetch overall top-free and top-paid from Apple Marketing Tools API
       const [freeApps, paidApps] = await Promise.all([
         fetchTopApps(TOP_FREE_URL, "top-free"),
         fetchTopApps(TOP_PAID_URL, "top-paid"),
       ]);
 
-      const allRankings = [...freeApps, ...paidApps];
-      const rankingsCount = await upsertRankings(allRankings);
+      const overallRankings = [...freeApps, ...paidApps];
+      let rankingsCount = await upsertRankings(overallRankings);
 
-      log.info("Upserted app rankings", {
+      log.info("Upserted overall app rankings", {
         free: freeApps.length,
         paid: paidApps.length,
-        total: rankingsCount,
       });
 
-      // Fetch reviews for top N apps from each list
-      const appsToReview = [
+      // Fetch per-category rankings from iTunes RSS API (richer data)
+      const categoryRankings: AppRankingRow[] = [];
+
+      for (const cat of ITUNES_CATEGORIES) {
+        await delay(REQUEST_DELAY_MS);
+
+        const itunesUrl = `https://itunes.apple.com/us/rss/topfreeapplications/limit=25/genre=${cat.id}/json`;
+        const listType = `top-free-${cat.id}`;
+
+        try {
+          const data = await fetchJson(itunesUrl);
+          const apps = parseTopAppsItunes(data, listType);
+          categoryRankings.push(...apps);
+          log.info("Fetched iTunes category rankings", {
+            category: cat.name,
+            count: apps.length,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          log.warn("Failed to fetch iTunes category rankings", {
+            category: cat.name,
+            error: msg,
+          });
+        }
+      }
+
+      if (categoryRankings.length > 0) {
+        const catCount = await upsertRankings(categoryRankings);
+        rankingsCount += catCount;
+        log.info("Upserted category rankings", {
+          categories: ITUNES_CATEGORIES.length,
+          total: catCount,
+        });
+      }
+
+      // Build list of apps to fetch reviews for:
+      // top N from overall lists + top N from each category
+      const appsToReview: AppRankingRow[] = [
         ...freeApps.slice(0, TOP_APPS_PER_LIST),
         ...paidApps.slice(0, TOP_APPS_PER_LIST),
       ];
+
+      // Add top N from each category (deduplicate by app id)
+      const seenIds = new Set(appsToReview.map((a) => a.id));
+      for (const cat of ITUNES_CATEGORIES) {
+        const listType = `top-free-${cat.id}`;
+        const catApps = categoryRankings
+          .filter((a) => a.list_type === listType)
+          .slice(0, TOP_APPS_PER_LIST);
+        for (const app of catApps) {
+          if (!seenIds.has(app.id)) {
+            seenIds.add(app.id);
+            appsToReview.push(app);
+          }
+        }
+      }
 
       let totalReviews = 0;
 
@@ -254,8 +442,9 @@ export function createAppStoreScraper(config?: {
         reviews: totalReviews,
       });
 
-      // Index unindexed reviews into memory
+      // Index unindexed content into memory
       await indexUnindexedReviews();
+      await indexUnindexedRankings();
 
       return { ok: true, rankings: rankingsCount, reviews: totalReviews };
     } catch (err) {

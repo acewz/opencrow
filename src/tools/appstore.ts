@@ -2,6 +2,7 @@ import type { ToolDefinition } from "./types";
 import type { MemoryManager } from "../memory/types";
 import {
   getRankings,
+  getRankingsByCategory,
   getLowRatedReviews,
   type AppRankingRow,
   type AppReviewRow,
@@ -11,7 +12,12 @@ import { createDigestTool } from "./digest-factory";
 import { getEnum } from "./input-helpers";
 
 function formatRanking(r: AppRankingRow, i: number): string {
-  return `${i + 1}. #${r.rank} ${r.name} by ${r.artist} [${r.category}] (${r.list_type})`;
+  const price =
+    !r.price || r.price === "0.00000" || r.price === "0" || r.price === "Free"
+      ? "Free"
+      : `$${r.price}`;
+  const desc = r.description ? ` — ${r.description.slice(0, 100)}...` : "";
+  return `${i + 1}. #${r.rank} ${r.name} by ${r.artist} [${r.category}] (${r.list_type}) ${price}${desc}`;
 }
 
 function formatReview(r: AppReviewRow, i: number): string {
@@ -40,12 +46,22 @@ export function createAppStoreTools(
           list_type: {
             type: "string",
             enum: ["top-free", "top-paid"],
-            description: "Filter by list type.",
+            description: "Filter by list type (overall charts only).",
+          },
+          category: {
+            type: "string",
+            description:
+              "Filter by app category (e.g. 'Games', 'Finance', 'Health & Fitness'). Returns category-specific rankings.",
           },
         },
         required: [],
       },
       fetchFn: async (input, limit) => {
+        const category =
+          typeof input.category === "string" ? input.category.trim() : "";
+        if (category) {
+          return getRankingsByCategory(category, limit);
+        }
         const listType = getEnum(input, "list_type", LIST_TYPES);
         return getRankings(listType, limit);
       },
