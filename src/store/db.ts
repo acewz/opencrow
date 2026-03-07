@@ -1,5 +1,5 @@
 import { SQL } from "bun";
-import { MIGRATIONS } from "./migrations";
+import { MIGRATIONS } from "./migrations/index";
 
 let db: InstanceType<typeof SQL> | null = null;
 
