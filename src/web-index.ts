@@ -190,10 +190,19 @@ async function main(): Promise<void> {
 
       // WebSocket market kline feed — proxy to market process
       if (url.pathname === "/ws/market") {
-        const token = url.searchParams.get("token");
         const expectedToken = process.env.OPENCROW_WEB_TOKEN;
-        if (expectedToken && token !== expectedToken) {
-          return new Response("Unauthorized", { status: 401 });
+        if (expectedToken) {
+          // Accept token via Sec-WebSocket-Protocol header (preferred, no URL leak)
+          // or Authorization header (non-browser clients)
+          const protocol = req.headers.get("sec-websocket-protocol");
+          const authHeader = req.headers.get("authorization");
+          const bearerToken = authHeader?.startsWith("Bearer ")
+            ? authHeader.slice(7)
+            : null;
+          const providedToken = protocol ?? bearerToken;
+          if (providedToken !== expectedToken) {
+            return new Response("Unauthorized", { status: 401 });
+          }
         }
         const upgraded = bunServer.upgrade(req, {
           data: { upstream: null } satisfies WsData,
