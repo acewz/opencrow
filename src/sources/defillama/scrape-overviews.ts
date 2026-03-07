@@ -74,14 +74,9 @@ export async function scrapeProtocolDetails(): Promise<number> {
   const rows: ProtocolDetailRow[] = [];
 
   for (const slug of slugs) {
-    try {
-      const raw = await fetchJson<RawProtocolDetail>(`${PROTOCOL_DETAIL_URL}/${slug}`);
+    const raw = await fetchJson<RawProtocolDetail>(`${PROTOCOL_DETAIL_URL}/${slug}`);
+    if (raw !== null) {
       rows.push(rawDetailToRow(raw));
-    } catch (err) {
-      log.warn("Failed to fetch protocol detail", {
-        slug,
-        error: err instanceof Error ? err.message : String(err),
-      });
     }
     await delay(REQUEST_DELAY_MS);
   }
@@ -97,6 +92,7 @@ export async function scrapeProtocolDetails(): Promise<number> {
 
 export async function scrapeCategories(): Promise<number> {
   const raw = await fetchJson<RawCategory>(CATEGORIES_URL);
+  if (raw === null) return 0;
   const now = Math.floor(Date.now() / 1000);
 
   // Find latest timestamp in chart for TVL values
@@ -129,6 +125,7 @@ export async function scrapeCategories(): Promise<number> {
 export async function scrapeGlobalFees(): Promise<void> {
   const url = `${FEES_URL}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
   const raw = await fetchJson<RawFeesOverview>(url);
+  if (raw === null) return;
   const now = Math.floor(Date.now() / 1000);
   const today = Math.floor(now / 86_400) * 86_400;
 
@@ -165,6 +162,7 @@ export async function scrapeGlobalFees(): Promise<void> {
 export async function scrapeGlobalDexVolumes(): Promise<void> {
   const url = `${DEX_VOLUMES_URL}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
   const raw = await fetchJson<RawDexOverview>(url);
+  if (raw === null) return;
   const now = Math.floor(Date.now() / 1000);
   const today = Math.floor(now / 86_400) * 86_400;
 
@@ -201,6 +199,7 @@ export async function scrapeGlobalDexVolumes(): Promise<void> {
 export async function scrapeOptions(): Promise<void> {
   const url = `${OPTIONS_URL}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
   const raw = await fetchJson<RawOptionsOverview>(url);
+  if (raw === null) return;
   const now = Math.floor(Date.now() / 1000);
   const today = Math.floor(now / 86_400) * 86_400;
 
@@ -258,6 +257,7 @@ export async function scrapeOptions(): Promise<void> {
 export async function scrapeDerivatives(): Promise<void> {
   const url = `${DERIVATIVES_URL}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
   const raw = await fetchJson<RawDerivativesOverview>(url);
+  if (raw === null) return;
   const now = Math.floor(Date.now() / 1000);
   const today = Math.floor(now / 86_400) * 86_400;
 

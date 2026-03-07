@@ -72,48 +72,37 @@ export function protocolToArticleForIndex(p: ProtocolRow): ArticleForIndex {
 // --- Fetchers ---
 
 export async function fetchProtocols(): Promise<readonly ProtocolRow[]> {
-  try {
-    const raw = await fetchJson<readonly RawProtocol[]>(PROTOCOLS_URL);
-    return raw
-      .filter((p) => p.slug && p.tvl !== undefined && p.tvl >= MIN_TVL_USD)
-      .map(rawProtocolToRow);
-  } catch (err) {
-    log.error("Failed to fetch protocols", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
+  const raw = await fetchJson<readonly RawProtocol[]>(PROTOCOLS_URL);
+  if (raw === null) return [];
+  return raw
+    .filter((p) => p.slug && p.tvl !== undefined && p.tvl >= MIN_TVL_USD)
+    .map(rawProtocolToRow);
 }
 
 export async function fetchDexVolumesGlobal(): Promise<
   ReadonlyMap<string, { total24h: number; change1d: number | null }>
 > {
-  try {
-    const url = `${DEX_VOLUMES_URL}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
-    const raw = await fetchJson<{
-      readonly protocols?: readonly RawDexProtocol[];
-    }>(url);
+  const url = `${DEX_VOLUMES_URL}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
+  const raw = await fetchJson<{
+    readonly protocols?: readonly RawDexProtocol[];
+  }>(url);
 
-    const map = new Map<string, { total24h: number; change1d: number | null }>();
+  if (raw === null) return new Map();
 
-    if (raw.protocols) {
-      for (const dex of raw.protocols) {
-        if (dex.slug && dex.total24h) {
-          map.set(dex.slug, {
-            total24h: dex.total24h,
-            change1d: dex.change_1d ?? null,
-          });
-        }
+  const map = new Map<string, { total24h: number; change1d: number | null }>();
+
+  if (raw.protocols) {
+    for (const dex of raw.protocols) {
+      if (dex.slug && dex.total24h) {
+        map.set(dex.slug, {
+          total24h: dex.total24h,
+          change1d: dex.change_1d ?? null,
+        });
       }
     }
-
-    return map;
-  } catch (err) {
-    log.error("Failed to fetch DEX volumes", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return new Map();
   }
+
+  return map;
 }
 
 // --- Orchestrator ---

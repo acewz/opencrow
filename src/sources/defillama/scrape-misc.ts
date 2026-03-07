@@ -1,9 +1,9 @@
 import { createLogger } from "../../logger";
-import { fetchJson, delay, HACKS_URL, STABLECOINS_URL, EMISSIONS_URL, TREASURY_URL, REQUEST_DELAY_MS } from "./api";
-import { upsertHacks, upsertStablecoins, upsertEmissions, upsertTreasury } from "./store-misc";
+import { fetchJson, delay, HACKS_URL, STABLECOINS_URL, EMISSIONS_URL, REQUEST_DELAY_MS } from "./api";
+import { upsertHacks, upsertStablecoins, upsertEmissions } from "./store-misc";
 import type {
-  RawHack, RawStablecoin, RawEmission, RawTreasury,
-  HackRow, StablecoinRow, EmissionRow, TreasuryRow,
+  RawHack, RawStablecoin, RawEmission,
+  HackRow, StablecoinRow, EmissionRow,
 } from "./types";
 
 const log = createLogger("defillama:misc");
@@ -45,6 +45,7 @@ function toHackRow(raw: RawHack): HackRow {
 export async function scrapeHacks(): Promise<number> {
   log.info("Fetching hacks");
   const raw = await fetchJson<RawHack[]>(HACKS_URL);
+  if (raw === null) return 0;
   const rows = raw.map(toHackRow).filter((r) => r.id !== "" && r.id !== "-");
   const count = await upsertHacks(rows);
   log.info("Hacks scraped", { total: raw.length, upserted: count });
@@ -73,6 +74,7 @@ export async function scrapeStablecoins(): Promise<number> {
   const response = await fetchJson<{ peggedAssets: RawStablecoin[] }>(
     `${STABLECOINS_URL}?includePrices=true`,
   );
+  if (response === null) return 0;
   const raw = response.peggedAssets ?? [];
   const filtered = raw.filter((s) => (s.circulating?.peggedUSD ?? 0) >= 1_000_000);
   const rows = filtered.map(toStablecoinRow).filter((r) => r.id !== "");
@@ -106,6 +108,7 @@ function toEmissionRow(raw: RawEmission): EmissionRow {
 export async function scrapeEmissions(): Promise<number> {
   log.info("Fetching emissions");
   const raw = await fetchJson<RawEmission[]>(EMISSIONS_URL);
+  if (raw === null) return 0;
   const nowSec = Math.floor(Date.now() / 1000);
   const filtered = raw.filter(
     (e) => e.nextEvent?.date !== undefined && (e.nextEvent.date ?? 0) > nowSec,
@@ -120,27 +123,11 @@ export async function scrapeEmissions(): Promise<number> {
 // Treasury
 // =============================================================================
 
-function toTreasuryRow(raw: RawTreasury): TreasuryRow {
-  const breakdowns = raw.tokenBreakdowns ?? {};
-  return {
-    protocol_id: raw.id ?? raw.slug ?? "",
-    name: raw.name ?? "",
-    total_usd: raw.tvl ?? 0,
-    own_tokens_usd: breakdowns.ownTokens ?? 0,
-    stablecoins_usd: breakdowns.stablecoins ?? 0,
-    majors_usd: breakdowns.majors ?? 0,
-    others_usd: breakdowns.others ?? 0,
-    updated_at: Math.floor(Date.now() / 1000),
-  };
-}
 
 export async function scrapeTreasury(): Promise<number> {
-  log.info("Fetching treasury");
-  const raw = await fetchJson<RawTreasury[]>(TREASURY_URL);
-  const rows = raw.map(toTreasuryRow).filter((r) => r.protocol_id !== "");
-  const count = await upsertTreasury(rows);
-  log.info("Treasury scraped", { total: raw.length, upserted: count });
-  return count;
+  // Treasury endpoint (api.llama.fi/treasury) returns 404. Disabled until correct endpoint is found.
+  log.warn("Treasury scraping disabled — endpoint returns 404, skipping");
+  return 0;
 }
 
 // =============================================================================
@@ -184,6 +171,7 @@ export async function scrapeMiscData(): Promise<{
   } catch (err) {
     log.error("Failed to scrape treasury", { error: err instanceof Error ? err.message : String(err) });
   }
+  await delay(REQUEST_DELAY_MS);
 
   return { hacks, stablecoins, emissions, treasury };
 }

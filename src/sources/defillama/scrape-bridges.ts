@@ -5,7 +5,7 @@ import type { RawBridge, RawBridgeDetail, BridgeRow } from "./types";
 
 const log = createLogger("defillama:bridges");
 
-const TOP_BRIDGE_DETAIL_COUNT = 20;
+const TOP_BRIDGE_DETAIL_COUNT = 5;
 
 function toRow(raw: RawBridge, chainBreakdownJson = "{}"): BridgeRow {
   return {
@@ -24,6 +24,7 @@ export async function scrapeBridges(): Promise<number> {
   log.info("Fetching bridges");
 
   const response = await fetchJson<{ bridges: RawBridge[] }>(BRIDGES_URL);
+  if (response === null) return 0;
   const rawBridges = response.bridges ?? [];
 
   // Build initial rows map keyed by id
@@ -41,20 +42,15 @@ export async function scrapeBridges(): Promise<number> {
 
   for (const bridge of top20) {
     const id = bridge.id as number;
-    try {
-      const detail = await fetchJson<RawBridgeDetail>(`${BRIDGE_DETAIL_URL}/${id}`);
+    const detail = await fetchJson<RawBridgeDetail>(`${BRIDGE_DETAIL_URL}/${id}`);
+    if (detail !== null) {
       const chainBreakdownJson = JSON.stringify(detail.chainBreakdown ?? {});
       const existing = rowsMap.get(id);
       if (existing) {
         rowsMap.set(id, { ...existing, chain_breakdown_json: chainBreakdownJson });
       }
-    } catch (err) {
-      log.warn("Failed to fetch bridge detail", {
-        id,
-        error: err instanceof Error ? err.message : String(err),
-      });
     }
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
   }
 
   const rows = [...rowsMap.values()].filter((r) => r.id !== 0);

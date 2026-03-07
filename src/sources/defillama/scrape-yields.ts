@@ -29,6 +29,7 @@ export async function scrapeYieldPools(): Promise<number> {
   log.info("Fetching yield pools");
 
   const response = await fetchJson<{ status: string; data: RawYieldPool[] }>(YIELDS_URL);
+  if (response === null) return 0;
   const raw = response.data ?? [];
 
   const filtered = raw.filter(

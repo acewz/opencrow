@@ -16,7 +16,7 @@ import type { DefiLlamaScraper, ScrapeResult } from "./types";
 
 const log = createLogger("defillama-scraper");
 
-const TICK_INTERVAL_MS = 2_700_000; // 45 minutes
+const TICK_INTERVAL_MS = 7_200_000; // 2 hours
 
 // =============================================================================
 // Scraper factory
@@ -70,22 +70,22 @@ export function createDefiLlamaScraper(config?: {
 
   async function scrape(): Promise<ScrapeResult> {
     const { protocols } = await scrapeProtocols();
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
     const { chains } = await scrapeChains();
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
     const historyPoints = await scrapeHistoricalTvl();
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
     const metricsChains = await scrapeChainMetrics();
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
     const { protocolDetails, categories } = await scrapeOverviews();
 
     // 6. Yield pools
     const yieldPools = await scrapeYieldPools();
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
 
     // 7. Bridges
     const bridgeCount = await scrapeBridges();
-    await delay(REQUEST_DELAY_MS);
+    await delay(REQUEST_DELAY_MS * 2);
 
     // 8. Hacks, stablecoins, emissions, treasury
     const misc = await scrapeMiscData();

@@ -1,7 +1,11 @@
+import { createLogger } from "../../logger";
+
+const log = createLogger("defillama-api");
+
 // --- Constants ---
 
 export const DEFILLAMA_AGENT_ID = "defillama";
-export const REQUEST_DELAY_MS = 1_200; // polite rate limiting
+export const REQUEST_DELAY_MS = 5_000; // polite rate limiting
 
 // --- API URLs ---
 export const PROTOCOLS_URL = "https://api.llama.fi/protocols";
@@ -24,14 +28,40 @@ export const TREASURY_URL = "https://api.llama.fi/treasury";
 
 // --- Fetch helpers ---
 
-export async function fetchJson<T>(url: string): Promise<T> {
-  const response = await fetch(url, {
-    headers: { Accept: "application/json" },
-  });
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status} from ${url}`);
+export async function fetchJson<T>(url: string, maxRetries = 3): Promise<T | null> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { Accept: "application/json" },
+      });
+
+      if (response.ok) {
+        return response.json() as Promise<T>;
+      }
+
+      if (response.status === 429 || response.status >= 500) {
+        if (attempt < maxRetries) {
+          const backoff = 10_000 * Math.pow(2, attempt) + Math.random() * 3000;
+          log.warn("Rate limited, retrying", { url, status: response.status, attempt: attempt + 1, backoffMs: Math.round(backoff) });
+          await delay(backoff);
+          continue;
+        }
+      }
+
+      log.error("HTTP error", { url, status: response.status });
+      return null;
+    } catch (err) {
+      if (attempt < maxRetries) {
+        const backoff = 10_000 * Math.pow(2, attempt) + Math.random() * 3000;
+        log.warn("Fetch error, retrying", { url, error: err instanceof Error ? err.message : String(err), attempt: attempt + 1 });
+        await delay(backoff);
+        continue;
+      }
+      log.error("Fetch failed after retries", { url, error: err instanceof Error ? err.message : String(err) });
+      return null;
+    }
   }
-  return response.json() as Promise<T>;
+  return null;
 }
 
 export function delay(ms: number): Promise<void> {

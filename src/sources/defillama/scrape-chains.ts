@@ -48,96 +48,60 @@ export function rawChainToRow(raw: RawChain): ChainTvlRow {
 // --- Fetchers ---
 
 export async function fetchChains(): Promise<readonly ChainTvlRow[]> {
-  try {
-    const raw = await fetchJson<readonly RawChain[]>(CHAINS_URL);
-    return raw
-      .filter((c) => c.name && c.tvl !== undefined && c.tvl > 0)
-      .map(rawChainToRow);
-  } catch (err) {
-    log.error("Failed to fetch chains", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
+  const raw = await fetchJson<readonly RawChain[]>(CHAINS_URL);
+  if (raw === null) return [];
+  return raw
+    .filter((c) => c.name && c.tvl !== undefined && c.tvl > 0)
+    .map(rawChainToRow);
 }
 
 export async function fetchHistoricalChainTvl(
   chainName: string,
 ): Promise<readonly ChainTvlHistoryRow[]> {
-  try {
-    const raw = await fetchJson<readonly RawHistoricalTvlPoint[]>(
-      `${HISTORICAL_CHAIN_TVL_URL}/${chainName}`,
-    );
+  const raw = await fetchJson<readonly RawHistoricalTvlPoint[]>(
+    `${HISTORICAL_CHAIN_TVL_URL}/${chainName}`,
+  );
+  if (raw === null) return [];
 
-    const cid = chainToId(chainName);
+  const cid = chainToId(chainName);
 
-    return raw
-      .filter((p) => p.date && p.tvl > 0)
-      .map((p) => ({
-        chain_id: cid,
-        date: p.date,
-        tvl: p.tvl,
-      }));
-  } catch (err) {
-    log.error("Failed to fetch historical TVL", {
-      chain: chainName,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return [];
-  }
+  return raw
+    .filter((p) => p.date && p.tvl > 0)
+    .map((p) => ({
+      chain_id: cid,
+      date: p.date,
+      tvl: p.tvl,
+    }));
 }
 
 export async function fetchChainFees(
   chainName: string,
 ): Promise<RawChainFees | null> {
-  try {
-    const url = `${FEES_URL}/${chainName}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
-    return await fetchJson<RawChainFees>(url);
-  } catch (err) {
-    log.error("Failed to fetch chain fees", {
-      chain: chainName,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
-  }
+  const url = `${FEES_URL}/${chainName}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
+  return fetchJson<RawChainFees>(url);
 }
 
 export async function fetchChainDexVolumes(
   chainName: string,
 ): Promise<RawChainDexVolume | null> {
-  try {
-    const url = `${DEX_VOLUMES_URL}/${chainName}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
-    return await fetchJson<RawChainDexVolume>(url);
-  } catch (err) {
-    log.error("Failed to fetch chain DEX volumes", {
-      chain: chainName,
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return null;
-  }
+  const url = `${DEX_VOLUMES_URL}/${chainName}?excludeTotalDataChart=true&excludeTotalDataChartBreakdown=true`;
+  return fetchJson<RawChainDexVolume>(url);
 }
 
 export async function fetchStablecoinsByChain(): Promise<
   ReadonlyMap<string, number>
 > {
-  try {
-    const raw =
-      await fetchJson<readonly RawStablecoinChain[]>(STABLECOIN_CHAINS_URL);
+  const raw = await fetchJson<readonly RawStablecoinChain[]>(STABLECOIN_CHAINS_URL);
+  if (raw === null) return new Map();
 
-    const map = new Map<string, number>();
-    for (const chain of raw) {
-      const mcap = chain.totalCirculatingUSD?.peggedUSD;
-      if (chain.name && mcap && mcap > 0) {
-        map.set(chain.name, mcap);
-      }
+  const map = new Map<string, number>();
+  for (const chain of raw) {
+    const mcap = chain.totalCirculatingUSD?.peggedUSD;
+    if (chain.name && mcap && mcap > 0) {
+      map.set(chain.name, mcap);
     }
-    return map;
-  } catch (err) {
-    log.error("Failed to fetch stablecoin data", {
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return new Map();
   }
+  return map;
 }
 
 // --- Orchestrators ---

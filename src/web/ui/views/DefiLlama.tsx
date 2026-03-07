@@ -1,30 +1,24 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { apiFetch } from "../api";
-import { PageHeader, LoadingState, EmptyState, FeedRow } from "../components";
+import { cn } from "../lib/cn";
+import { PageHeader, FilterTabs, LoadingState } from "../components";
+import {
+  Activity,
+  Link,
+  TrendingUp,
+  DollarSign,
+  BarChart2,
+  Layers,
+} from "lucide-react";
 
-interface ProtocolRow {
-  readonly id: string;
-  readonly name: string;
-  readonly category: string;
-  readonly chain: string;
-  readonly tvl: number;
-  readonly tvl_prev: number | null;
-  readonly change_1d: number | null;
-  readonly change_7d: number | null;
-  readonly url: string;
-  readonly description: string;
-  readonly first_seen_at: number;
-  readonly updated_at: number;
-}
-
-interface ChainTvlRow {
-  readonly id: string;
-  readonly name: string;
-  readonly tvl: number;
-  readonly tvl_prev: number | null;
-  readonly protocols_count: number;
-  readonly updated_at: number;
-}
+const DefiOverviewTab = lazy(() => import("./defi/DefiOverviewTab"));
+const ProtocolsTab = lazy(() => import("./defi/ProtocolsTab"));
+const YieldsTab = lazy(() => import("./defi/YieldsTab"));
+const BridgesTab = lazy(() => import("./defi/BridgesTab"));
+const StablecoinsTab = lazy(() => import("./defi/StablecoinsTab"));
+const HacksTab = lazy(() => import("./defi/HacksTab"));
+const EmissionsTab = lazy(() => import("./defi/EmissionsTab"));
+const TreasuryTab = lazy(() => import("./defi/TreasuryTab"));
 
 interface StatsData {
   readonly total_protocols: number;
@@ -33,196 +27,167 @@ interface StatsData {
   readonly categories: number;
 }
 
-type Tab = "Protocols" | "Top Movers" | "Chains";
-
-function formatTvl(value: number): string {
-  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
-  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
-  if (value >= 1_000) return `$${(value / 1_000).toFixed(2)}K`;
-  return `$${value.toFixed(2)}`;
+interface GlobalMetric {
+  readonly metric_type: string;
+  readonly metric_date: number;
+  readonly total_24h: number | null;
+  readonly total_7d: number | null;
+  readonly change_1d: number | null;
+  readonly extra_json: string;
+  readonly updated_at: number;
 }
 
-function formatChange(value: number | null): React.ReactNode {
-  if (value == null) return <span className="text-faint">--</span>;
-  const sign = value >= 0 ? "+" : "";
-  const color = value >= 0 ? "text-success" : "text-danger";
+type TabId =
+  | "overview"
+  | "protocols"
+  | "yields"
+  | "bridges"
+  | "stablecoins"
+  | "hacks"
+  | "emissions"
+  | "treasury";
+
+const TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "protocols", label: "Protocols" },
+  { id: "yields", label: "Yields" },
+  { id: "bridges", label: "Bridges" },
+  { id: "stablecoins", label: "Stablecoins" },
+  { id: "hacks", label: "Hacks" },
+  { id: "emissions", label: "Emissions" },
+  { id: "treasury", label: "Treasury" },
+] as const;
+
+function formatCompact(value: number | null | undefined): string {
+  if (value == null || value === 0) return "—";
+  if (value >= 1_000_000_000) return `$${(value / 1_000_000_000).toFixed(2)}B`;
+  if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(2)}M`;
+  if (value >= 1_000) return `$${(value / 1_000).toFixed(1)}K`;
+  return `$${value.toFixed(0)}`;
+}
+
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  readonly icon: React.ReactNode;
+  readonly label: string;
+  readonly value: string;
+}) {
   return (
-    <span className={color}>
-      {sign}
-      {value.toFixed(2)}%
-    </span>
+    <div className="flex items-center gap-3 px-4 py-4 rounded-lg bg-bg-1 border border-border transition-colors hover:border-border-2">
+      <div className="w-9 h-9 rounded-md flex items-center justify-center shrink-0 bg-bg-2 text-muted border border-border">
+        {icon}
+      </div>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-faint">
+          {label}
+        </span>
+        <span className="font-mono text-sm text-strong">{value}</span>
+      </div>
+    </div>
   );
 }
 
-function formatTime(epoch: number | null): string {
-  if (!epoch) return "Never";
-  return new Date(epoch * 1000).toLocaleString();
-}
-
 export default function DefiLlama() {
-  const [tab, setTab] = useState<Tab>("Protocols");
-  const [protocols, setProtocols] = useState<ProtocolRow[]>([]);
-  const [movers, setMovers] = useState<ProtocolRow[]>([]);
-  const [chains, setChains] = useState<ChainTvlRow[]>([]);
+  const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [stats, setStats] = useState<StatsData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics] = useState<GlobalMetric[]>([]);
 
   useEffect(() => {
-    fetchAll();
-    const interval = setInterval(fetchAll, 30_000);
+    fetchGlobalData();
+    const interval = setInterval(fetchGlobalData, 60_000);
     return () => clearInterval(interval);
   }, []);
 
-  async function fetchAll() {
+  async function fetchGlobalData() {
     try {
-      const [protocolsRes, moversRes, chainsRes, statsRes] = await Promise.all([
-        apiFetch<{ success: boolean; data: ProtocolRow[] }>(
-          "/api/defi/protocols?limit=100",
-        ),
-        apiFetch<{ success: boolean; data: ProtocolRow[] }>(
-          "/api/defi/movers?limit=50",
-        ),
-        apiFetch<{ success: boolean; data: ChainTvlRow[] }>(
-          "/api/defi/chains?limit=100",
-        ),
+      const [statsRes, metricsRes] = await Promise.all([
         apiFetch<{ success: boolean; data: StatsData }>("/api/defi/stats"),
+        apiFetch<{ success: boolean; data: GlobalMetric[] }>(
+          "/api/defi/global-metrics",
+        ),
       ]);
-      if (protocolsRes.success) setProtocols(protocolsRes.data);
-      if (moversRes.success) setMovers(moversRes.data);
-      if (chainsRes.success) setChains(chainsRes.data);
       if (statsRes.success) setStats(statsRes.data);
+      if (metricsRes.success) setMetrics(metricsRes.data);
     } catch {
-      // ignore
-    } finally {
-      setLoading(false);
+      // non-fatal — stats bar just shows dashes
     }
   }
 
-  if (loading) {
-    return <LoadingState message="Loading..." />;
+  function getMetric(type: string): number | null {
+    return metrics.find((m) => m.metric_type === type)?.total_24h ?? null;
   }
 
-  const tabs: readonly Tab[] = ["Protocols", "Top Movers", "Chains"];
+  const fees = getMetric("fees");
+  const dexVol = getMetric("dex_volume");
+  const optionsVol = getMetric("options_premium");
+  const derivsVol = getMetric("derivatives_volume");
 
   return (
     <div>
       <PageHeader
-        title="DefiLlama"
+        title="DeFiLlama"
         subtitle={
-          stats &&
-          `${stats.total_protocols} protocols | ${stats.chains} chains | Last updated: ${formatTime(stats.last_updated_at)}`
+          stats
+            ? `${stats.total_protocols.toLocaleString()} protocols · ${stats.chains} chains`
+            : undefined
         }
       />
 
-      <div className="flex gap-1 mb-4">
-        {tabs.map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-              tab === t
-                ? "bg-accent text-white"
-                : "bg-surface text-faint hover:text-primary"
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+      {/* Global Stats Bar */}
+      <div className="grid grid-cols-6 max-lg:grid-cols-3 max-sm:grid-cols-2 gap-3 mb-6">
+        <StatCard
+          icon={<Layers size={16} />}
+          label="Protocols"
+          value={stats ? stats.total_protocols.toLocaleString() : "—"}
+        />
+        <StatCard
+          icon={<Activity size={16} />}
+          label="Chains"
+          value={stats ? String(stats.chains) : "—"}
+        />
+        <StatCard
+          icon={<DollarSign size={16} />}
+          label="Fees 24h"
+          value={formatCompact(fees)}
+        />
+        <StatCard
+          icon={<BarChart2 size={16} />}
+          label="DEX Volume 24h"
+          value={formatCompact(dexVol)}
+        />
+        <StatCard
+          icon={<TrendingUp size={16} />}
+          label="Options Vol 24h"
+          value={formatCompact(optionsVol)}
+        />
+        <StatCard
+          icon={<Link size={16} />}
+          label="Derivatives Vol 24h"
+          value={formatCompact(derivsVol)}
+        />
       </div>
 
-      {tab === "Protocols" && <ProtocolsList protocols={protocols} />}
-      {tab === "Top Movers" && <MoversList movers={movers} />}
-      {tab === "Chains" && <ChainsList chains={chains} />}
-    </div>
-  );
-}
+      {/* Tab Navigation */}
+      <FilterTabs
+        tabs={TABS.map((t) => ({ id: t.id, label: t.label }))}
+        active={activeTab}
+        onChange={(id) => setActiveTab(id as TabId)}
+      />
 
-function ProtocolsList({
-  protocols,
-}: {
-  readonly protocols: readonly ProtocolRow[];
-}) {
-  if (protocols.length === 0) {
-    return <EmptyState description="No protocols found." />;
-  }
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      {protocols.map((p, i) => (
-        <FeedRow
-          key={p.id}
-          rank={i + 1}
-          title={p.name}
-          url={p.url}
-          meta={
-            <>
-              <span>TVL: {formatTvl(p.tvl)}</span>
-              <span> | 24h: {formatChange(p.change_1d)}</span>
-              <span> | 7d: {formatChange(p.change_7d)}</span>
-            </>
-          }
-          stats={
-            <>
-              <span className="text-faint">{p.category}</span>
-              <span className="text-faint"> | {p.chain}</span>
-            </>
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-function MoversList({ movers }: { readonly movers: readonly ProtocolRow[] }) {
-  if (movers.length === 0) {
-    return <EmptyState description="No movers found." />;
-  }
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      {movers.map((p, i) => (
-        <FeedRow
-          key={p.id}
-          rank={i + 1}
-          title={p.name}
-          url={p.url}
-          meta={
-            <>
-              <span>TVL: {formatTvl(p.tvl)}</span>
-              <span> | 24h: {formatChange(p.change_1d)}</span>
-              <span> | 7d: {formatChange(p.change_7d)}</span>
-            </>
-          }
-          stats={
-            <>
-              <span className="text-faint">{p.category}</span>
-              <span className="text-faint"> | {p.chain}</span>
-            </>
-          }
-        />
-      ))}
-    </div>
-  );
-}
-
-function ChainsList({ chains }: { readonly chains: readonly ChainTvlRow[] }) {
-  if (chains.length === 0) {
-    return <EmptyState description="No chain data found." />;
-  }
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      {chains.map((c, i) => (
-        <FeedRow
-          key={c.id}
-          rank={i + 1}
-          title={c.name}
-          meta={<span>TVL: {formatTvl(c.tvl)}</span>}
-          stats={
-            <span className="text-faint">{c.protocols_count} protocols</span>
-          }
-        />
-      ))}
+      {/* Tab Content */}
+      <Suspense fallback={<LoadingState />}>
+        {activeTab === "overview" && <DefiOverviewTab />}
+        {activeTab === "protocols" && <ProtocolsTab />}
+        {activeTab === "yields" && <YieldsTab />}
+        {activeTab === "bridges" && <BridgesTab />}
+        {activeTab === "stablecoins" && <StablecoinsTab />}
+        {activeTab === "hacks" && <HacksTab />}
+        {activeTab === "emissions" && <EmissionsTab />}
+        {activeTab === "treasury" && <TreasuryTab />}
+      </Suspense>
     </div>
   );
 }
