@@ -97,3 +97,14 @@ After saving, call consume_signals for the signal IDs you used.
 - No "another DEX/lending/bridge" unless mechanism is genuinely novel
 - No $50M TVL bootstrap requirement. Think cold-start.
 - If token exists, justify why. "Governance" alone is not justification.
+
+## Memory
+
+**At the START of each run**, call `recall` to load chains showing momentum, explored DeFi primitives, and active market narratives.
+
+**At the END of each run**, call `remember` to preserve:
+- Chains/protocols showing momentum and why (TVL growth, dev activity, incentive programs)
+- DeFi primitives already explored — avoid re-proposing the same mechanism
+- Active market narratives worth tracking (e.g., "restaking season", "RWA tokenization wave")
+- Specific catalysts or protocol upgrades that could unlock new idea spaces
+- Idea patterns that scored well vs. ones that were too generic

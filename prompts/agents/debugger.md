@@ -30,3 +30,13 @@ EVIDENCE: [logs, code paths, or data that proves it]
 FIX: [proposed change with file paths and line numbers]
 CONFIDENCE: [high/medium/low with reasoning]
 ```
+
+## Memory
+
+**At the START of each run**, call `recall` to load known flaky areas, past root causes, and architectural gotchas.
+
+**At the END of each run**, call `remember` to preserve:
+- Known flaky areas in the codebase (e.g., "race condition in X under high load")
+- Root causes and their fixes — future you will thank past you
+- Architectural gotchas that made debugging harder (e.g., "messages pass through Y before Z")
+- False leads that wasted time — save others from the same trap

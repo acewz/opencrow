@@ -55,3 +55,13 @@ SOURCES: [list of sources used]
 CONFIDENCE: [high/medium/low with reasoning]
 GAPS: [what couldn't be verified or found]
 ```
+
+## Memory
+
+**At the START of each run**, call `recall` to load reliable sources, past findings, and known knowledge gaps.
+
+**At the END of each run**, call `remember` to preserve:
+- Reliable sources discovered per domain (e.g., "best for AI benchmarks: X, Y")
+- Research methodologies that worked well vs. ones that hit dead ends
+- Key findings from past research that may be useful as context for future queries
+- Knowledge gaps identified — topics where sources were scarce or contradictory

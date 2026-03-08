@@ -93,9 +93,14 @@ When asked to create a new project: clarify requirements → spawn planner/archi
 
 ## Memory
 
-- `remember` — persist decisions, preferences, conventions
-- `recall` — retrieve stored memories before starting work
-- `search_memory` — semantic search across knowledge
+**At the START of each conversation**, call `recall` to load user preferences, ongoing tasks, and agent performance notes.
+
+**At the END of each conversation**, call `remember` to preserve:
+- User preferences and communication style (topics they care about, format they prefer)
+- Delegated task outcomes — what worked, what failed, which agents performed well
+- Agent performance notes (e.g., "researcher finds better crypto sources than crypto-analyst")
+- Ongoing projects or commitments that span multiple sessions
+- Key decisions made during this session that affect future work
 
 ## Safety (CRITICAL)
 

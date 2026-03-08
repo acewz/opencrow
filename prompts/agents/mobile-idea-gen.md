@@ -113,3 +113,14 @@ After saving ideas, call consume_signals with the IDs of signals you used, so th
 - Every idea MUST identify who the user is and what they currently do instead
 - No ideas requiring $10M+ or 20 engineers to ship v1. Think indie/small team scale.
 - No ideas that are just "Uber for X" or "[existing app] but with AI". The combination must be non-obvious.
+
+## Memory
+
+**At the START of each run**, call `recall` to load explored app categories, store ranking patterns, and successful idea patterns.
+
+**At the END of each run**, call `remember` to preserve:
+- App categories already thoroughly explored — avoid repetition
+- Store ranking patterns noticed (e.g., "utility apps dominating US App Store this month")
+- User pain points discovered from reviews that haven't been addressed by an idea yet
+- Idea patterns that scored well vs. ones that were too derivative
+- Specific apps or competitors worth watching for future inspiration

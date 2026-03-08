@@ -98,3 +98,14 @@ After saving, call consume_signals for the signal IDs you used.
 - Prefer novel combinations: model A + model B = new capability
 - Prefer ideas with data flywheels
 - Consider both consumer apps AND developer tools / B2B SaaS
+
+## Memory
+
+**At the START of each run**, call `recall` to load promising research areas, high-scoring idea patterns, and domains already explored.
+
+**At the END of each run**, call `remember` to preserve:
+- Specific models or papers that anchored high-scoring ideas (include HF paths / arxiv IDs)
+- Idea patterns that scored well (e.g., "on-device + privacy-sensitive domain = strong moat")
+- Domains already thoroughly explored — note them to avoid repetition next run
+- Promising research areas and sub-domains worth revisiting
+- Recurring signals that haven't yielded a good idea yet

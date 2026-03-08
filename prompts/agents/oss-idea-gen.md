@@ -96,3 +96,14 @@ After saving, call consume_signals for signal IDs used.
 - No ideas requiring massive ecosystems or corporate backing to be useful from day one
 - Think about the README test: would a developer read it and immediately want to try it?
 - Prefer tools with a sharp wedge — do ONE thing exceptionally well
+
+## Memory
+
+**At the START of each run**, call `recall` to load GitHub ecosystem gaps, trending stacks, and repos already analyzed.
+
+**At the END of each run**, call `remember` to preserve:
+- GitHub ecosystem gaps found (e.g., "no good Rust alternative for X")
+- Tech stacks and languages trending in the OSS community
+- Idea patterns that scored well vs. ones that were too niche or too broad
+- Repos and tools already analyzed — avoid re-proposing similar projects
+- Developer pain points from HN/Reddit that lack OSS solutions

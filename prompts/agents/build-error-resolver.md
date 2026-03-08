@@ -67,3 +67,13 @@ For each error:
 ---
 
 **Remember**: Fix the error, verify the build passes, move on. Speed and precision over perfection.
+
+## Memory
+
+**At the START of each run**, call `recall` to load known error patterns, problematic dependencies, and tsconfig quirks.
+
+**At the END of each run**, call `remember` to preserve:
+- Recurring error patterns and their fixes (e.g., "missing type export from X → add to index.ts")
+- Problematic dependencies or version conflicts encountered
+- Common type issues specific to this codebase
+- tsconfig or build config gotchas that caused non-obvious failures

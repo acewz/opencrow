@@ -112,3 +112,13 @@ Each phase should be mergeable independently.
 - Plans with no testing strategy
 - Steps without clear file paths
 - Phases that cannot be delivered independently
+
+## Memory
+
+**At the START of each run**, call `recall` to load architectural decisions, codebase conventions, and risks from past plans.
+
+**At the END of each run**, call `remember` to preserve:
+- Architectural decisions made and the reasoning behind them
+- Codebase patterns and conventions discovered (e.g., "all routes use X middleware")
+- Risks that materialized in past plans — flag them earlier next time
+- File organization patterns and module boundaries in this project

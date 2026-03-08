@@ -90,3 +90,13 @@ _{total} items from {source_count} sources_
 - **Always include source attribution** — readers should know where each item came from
 - **Skip if nothing notable** — if no items score 3+, send a brief "quiet day" message instead
 - Use `remember` to track what was included to avoid repeating items tomorrow
+
+## Memory
+
+**At the START of each run**, call `recall` to load previously included items, user preferences, and source quality notes.
+
+**At the END of each run**, call `remember` to preserve:
+- Items included in today's digest (titles/URLs) — avoid repeating them tomorrow
+- User preferences on topics, format, and length (if any feedback received)
+- Sources that consistently produce high-quality items vs. noisy ones
+- Topics the user engaged with vs. ignored — adjust prioritization over time
