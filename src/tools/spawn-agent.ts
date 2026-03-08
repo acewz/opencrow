@@ -14,10 +14,6 @@ import {
   saveDecomposition,
   updateDecompositionStatus,
 } from "../agent/task-decomposer";
-import {
-  predictAgent,
-  recordPredictionOutcome,
-} from "../agent/prediction-engine";
 import type { AgentRunResult } from "../agents/runner";
 import {
   enqueueTask,
@@ -189,15 +185,6 @@ export function createSpawnAgentTool(
         };
       }
 
-      // Record prediction for Phase 5 learning (non-blocking)
-      let predictionId: number | null = null;
-      try {
-        const prediction = await predictAgent(task, config.sessionId);
-        predictionId = prediction.predictionId;
-      } catch (err) {
-        log.debug("Prediction recording skipped", { error: String(err) });
-      }
-
       const sessionKey = `${config.currentAgentId}`;
 
       // Check queue depth before spawning
@@ -246,7 +233,6 @@ export function createSpawnAgentTool(
         task,
         sessionKey,
         routedDomain,
-        predictionId,
       );
     },
   };
@@ -259,7 +245,6 @@ async function executeSingleAgent(
   task: string,
   sessionKey: string,
   routedDomain: string,
-  predictionId: number | null,
 ): Promise<{ output: string; isError: boolean }> {
   const targetAgent = config.agentRegistry.getById(targetAgentId);
   if (!targetAgent) {
@@ -345,16 +330,6 @@ async function executeSingleAgent(
 
     await config.tracker.complete(runId, result.text);
 
-    // Record prediction outcome (non-blocking)
-    if (predictionId != null) {
-      recordPredictionOutcome(predictionId, routedDomain, targetAgentId).catch(
-        (err) =>
-          log.debug("Prediction outcome recording failed", {
-            error: String(err),
-          }),
-      );
-    }
-
     if (queueId) completeTask(queueId, result.text.slice(0, 2000)).catch(() => {});
 
     const meta = [
@@ -372,15 +347,6 @@ async function executeSingleAgent(
 
     const message = error instanceof Error ? error.message : String(error);
     await config.tracker.fail(runId, message);
-
-    if (predictionId != null) {
-      recordPredictionOutcome(predictionId, routedDomain, targetAgentId).catch(
-        (err) =>
-          log.debug("Prediction outcome recording failed", {
-            error: String(err),
-          }),
-      );
-    }
 
     if (queueId) failTask(queueId, message).catch(() => {});
 

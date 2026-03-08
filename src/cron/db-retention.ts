@@ -21,7 +21,6 @@ const RETENTION_RULES: ReadonlyArray<{
   { table: "routing_decisions", column: "created_at", format: "timestamptz", days: 60 },
   { table: "failure_records", column: "created_at", format: "timestamptz", days: 90 },
   { table: "self_reflection_logs", column: "created_at", format: "timestamptz", days: 60 },
-  { table: "prediction_records", column: "created_at", format: "timestamptz", days: 60 },
   { table: "workload_history", column: "sampled_at", format: "timestamptz", days: 30 },
   { table: "monitor_alerts", column: "created_at", format: "epoch", days: 90 },
   { table: "tool_stats", column: "updated_at", format: "epoch", days: 90 },
