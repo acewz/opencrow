@@ -16,7 +16,8 @@ import {
   buildThinkingOptions,
   buildSystemPromptOption,
   buildMcpServers,
-  buildAllowedTools,
+  buildDisallowedTools,
+  buildSessionOptions,
 } from "./sdk-options";
 import {
   type SdkUsage,
@@ -35,6 +36,22 @@ import { recordToolResult } from "./tool-stats";
 
 
 const log = createLogger("agent-sdk");
+
+/**
+ * Wrap an AbortSignal into an AbortController that the SDK expects.
+ * If the signal is already aborted, the controller is aborted immediately.
+ */
+function abortSignalToController(signal: AbortSignal): AbortController {
+  const controller = new AbortController();
+  if (signal.aborted) {
+    controller.abort(signal.reason);
+  } else {
+    signal.addEventListener("abort", () => controller.abort(signal.reason), {
+      once: true,
+    });
+  }
+  return controller;
+}
 
 const ALIBABA_DEFAULT_BASE_URL =
   "https://coding-intl.dashscope.aliyuncs.com/apps/anthropic";
@@ -114,6 +131,10 @@ export async function chat(
     const sessionCapture = { done: false };
     let usage: SdkUsage = createEmptyUsage();
 
+    const abortController = options.abortSignal
+      ? abortSignalToController(options.abortSignal)
+      : undefined;
+
     for await (const message of query({
       prompt: enrichedPrompt,
       options: {
@@ -124,6 +145,8 @@ export async function chat(
         permissionMode: "bypassPermissions",
         allowDangerouslySkipPermissions: true,
         ...buildThinkingOptions(options),
+        ...buildSessionOptions(),
+        ...(abortController ? { abortController } : {}),
         ...(options.sdkHooks ? { hooks: options.sdkHooks } : {}),
         ...(options.sdkSessionId ? { resume: options.sdkSessionId } : {}),
       },
@@ -198,6 +221,10 @@ async function runQuery(
   const sessionCapture = { done: Boolean(sessionId) };
   let usage = prev.usage;
 
+  const abortController = options.abortSignal
+    ? abortSignalToController(options.abortSignal)
+    : undefined;
+
   for await (const message of query({
     prompt: enrichedPrompt,
     options: {
@@ -208,8 +235,10 @@ async function runQuery(
       permissionMode: "bypassPermissions",
       allowDangerouslySkipPermissions: true,
       mcpServers: buildMcpServers(options, opencrowMcp),
-      allowedTools: buildAllowedTools(options),
+      disallowedTools: buildDisallowedTools(options),
       ...buildThinkingOptions(options),
+      ...buildSessionOptions(),
+      ...(abortController ? { abortController } : {}),
       ...(options.sdkHooks ? { hooks: options.sdkHooks } : {}),
       ...(sessionId ? { resume: sessionId } : {}),
     },
@@ -475,5 +504,5 @@ export async function agenticChat(
 
 // Re-export internal functions for backward compatibility with tests
 export { formatToolProgress, truncate, summarizeThinking, shortenPath } from "./sdk-progress";
-export { buildThinkingOptions, buildSystemPromptOption } from "./sdk-options";
+export { buildThinkingOptions, buildSystemPromptOption, buildDisallowedTools, buildSessionOptions } from "./sdk-options";
 export { buildPromptWithHistory, lastUserMessage } from "./prompt-context";

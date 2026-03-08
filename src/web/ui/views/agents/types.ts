@@ -42,6 +42,14 @@ export interface HooksConfig {
   notifications?: boolean;
 }
 
+export interface ModelParams {
+  thinkingMode?: "adaptive" | "enabled" | "disabled";
+  thinkingBudget?: number;
+  effort?: "low" | "medium" | "high" | "max";
+  extendedContext?: boolean;
+  maxBudgetUsd?: number;
+}
+
 export interface AgentInfo {
   id: string;
   name: string;
@@ -52,6 +60,7 @@ export interface AgentInfo {
   reasoning?: boolean;
   stateless?: boolean;
   maxInputLength?: number;
+  modelParams?: ModelParams;
   isDefault: boolean;
   toolFilter: ToolFilter;
   subagents: SubagentConfig;

@@ -31,8 +31,10 @@ export function buildThinkingOptions(
     result.thinking = { type: "disabled" };
   }
 
-  // Effort level — not supported by agent-sdk CLI, skipped.
-  // The thinking budget effectively controls effort instead.
+  // Effort level
+  if (params?.effort) {
+    result.effort = params.effort;
+  }
 
   // Extended context window beta
   if (params?.extendedContext) {
@@ -206,24 +208,37 @@ export function buildMcpServers(
 }
 
 /**
- * Build the allowedTools array based on enabled flags in AgentOptions.
+ * Build the disallowedTools array based on disabled flags in AgentOptions.
+ *
+ * The SDK's `allowedTools` only controls auto-permission (irrelevant with
+ * bypassPermissions). To actually restrict tool visibility, we use
+ * `disallowedTools` which removes tools from the model's context entirely.
  */
-export function buildAllowedTools(options: AgentOptions): string[] {
+export function buildDisallowedTools(options: AgentOptions): string[] {
   return [
-    "mcp__opencrow-tools__*",
-    ...(options.webSearchEnabled ? ["WebSearch", "WebFetch"] : []),
-    ...(options.browserEnabled ? ["mcp__playwright__*"] : []),
-    ...(options.githubEnabled ? ["mcp__github__*"] : []),
-    ...(options.context7Enabled ? ["mcp__context7__*"] : []),
-    ...(options.sequentialThinkingEnabled
+    ...(!options.webSearchEnabled ? ["WebSearch", "WebFetch"] : []),
+    ...(!options.browserEnabled ? ["mcp__playwright__*"] : []),
+    ...(!options.githubEnabled ? ["mcp__github__*"] : []),
+    ...(!options.context7Enabled ? ["mcp__context7__*"] : []),
+    ...(!options.sequentialThinkingEnabled
       ? ["mcp__sequential-thinking__*"]
       : []),
-    ...(options.dbhubEnabled ? ["mcp__dbhub__*"] : []),
-    ...(options.filesystemEnabled ? ["mcp__filesystem__*"] : []),
-    ...(options.gitEnabled ? ["mcp__git__*"] : []),
-    ...(options.qdrantEnabled ? ["mcp__qdrant__*"] : []),
-    ...(options.braveSearchEnabled ? ["mcp__brave-search__*"] : []),
-    ...(options.firecrawlEnabled ? ["mcp__firecrawl__*"] : []),
-    ...(options.serenaEnabled ? ["mcp__serena__*"] : []),
+    ...(!options.dbhubEnabled ? ["mcp__dbhub__*"] : []),
+    ...(!options.filesystemEnabled ? ["mcp__filesystem__*"] : []),
+    ...(!options.gitEnabled ? ["mcp__git__*"] : []),
+    ...(!options.qdrantEnabled ? ["mcp__qdrant__*"] : []),
+    ...(!options.braveSearchEnabled ? ["mcp__brave-search__*"] : []),
+    ...(!options.firecrawlEnabled ? ["mcp__firecrawl__*"] : []),
+    ...(!options.serenaEnabled ? ["mcp__serena__*"] : []),
   ];
+}
+
+/**
+ * Build session-level options that apply to all SDK queries.
+ */
+export function buildSessionOptions(): Record<string, unknown> {
+  return {
+    persistSession: false,
+    settingSources: [],
+  };
 }
