@@ -625,7 +625,7 @@ export function AgentFormModal({
                           <option value="low">Low (fast, minimal thinking)</option>
                           <option value="medium">Medium</option>
                           <option value="high">High (deep reasoning)</option>
-                          <option value="max">Max (Opus only)</option>
+                          <option value="max" disabled={!isOpus}>Max (Opus only)</option>
                         </select>
                       )}
                     />
