@@ -1,5 +1,6 @@
 import type { ToolDefinition, ToolCategory } from "./types";
 import { createLogger } from "../logger";
+import { AGENT_SEEDS } from "../config/agent-seeds";
 
 const log = createLogger("tool:agent-templates");
 
@@ -21,7 +22,7 @@ export interface AgentTemplate {
   };
 }
 
-export const TEMPLATES: readonly AgentTemplate[] = [
+const GENERIC_TEMPLATES: readonly AgentTemplate[] = [
   {
     templateId: "chatbot",
     name: "Chatbot",
@@ -34,157 +35,6 @@ export const TEMPLATES: readonly AgentTemplate[] = [
       reasoning: false,
       toolFilter: { mode: "allowlist", tools: [] },
       modelParams: { thinkingMode: "disabled", effort: "low" },
-    },
-  },
-  {
-    templateId: "researcher",
-    name: "Researcher",
-    description:
-      "Research agent with access to all data sources and web search",
-    config: {
-      provider: "agent-sdk",
-      model: "claude-sonnet-4-6",
-      maxIterations: 50,
-      stateless: true,
-      reasoning: false,
-      toolFilter: {
-        mode: "allowlist",
-        tools: [
-          "remember",
-          "recall",
-          "search_memory",
-          "search_news",
-          "get_news_digest",
-          "search_x_timeline",
-          "get_timeline_digest",
-          "search_reddit",
-          "get_reddit_digest",
-          "search_hn",
-          "get_hn_digest",
-          "search_products",
-          "get_product_digest",
-          "get_trends_digest",
-          "search_trends",
-          "cross_source_search",
-          "web_fetch",
-          "get_github_repos",
-          "search_github_repos",
-          "get_hf_models",
-          "search_hf_models",
-          "get_arxiv_papers",
-          "search_arxiv_papers",
-          "get_scholar_papers",
-          "search_scholar_papers",
-          "lookup_scholar_paper",
-          "get_calendar",
-          "read_file",
-          "grep",
-          "glob",
-          "list_files",
-          "send_message",
-          "get_scraper_status",
-          "get_subagent_runs",
-          "get_observations",
-          "search_observations",
-        ],
-      },
-      modelParams: { thinkingMode: "disabled", effort: "medium" },
-    },
-  },
-  {
-    templateId: "coder",
-    name: "Coder",
-    description: "Full coding assistant with file ops, git, tests, deploy",
-    config: {
-      provider: "agent-sdk",
-      model: "claude-sonnet-4-6",
-      maxIterations: 200,
-      stateless: false,
-      reasoning: true,
-      toolFilter: { mode: "all", tools: [] },
-      modelParams: { thinkingMode: "adaptive", effort: "max" },
-    },
-  },
-  {
-    templateId: "monitor",
-    name: "Monitor",
-    description: "System health monitor with analytics and alerting",
-    config: {
-      provider: "agent-sdk",
-      model: "claude-haiku-4-5",
-      maxIterations: 30,
-      stateless: true,
-      reasoning: false,
-      toolFilter: {
-        mode: "allowlist",
-        tools: [
-          "remember",
-          "recall",
-          "search_memory",
-          "process_manage",
-          "get_error_summary",
-          "get_cost_summary",
-          "get_health_dashboard",
-          "get_agent_performance",
-          "get_scraper_status",
-          "get_tool_usage",
-          "get_activity_timeline",
-          "get_session_stats",
-          "get_subagent_activity",
-          "agent_capacity",
-          "failure_patterns",
-          "get_process_health",
-          "get_process_logs",
-          "get_mcp_health",
-          "get_cost_breakdown",
-          "get_routing_stats",
-          "db_query",
-          "db_list_tables",
-          "db_row_counts",
-          "cron",
-          "trigger_cron",
-          "send_message",
-          "bash",
-        ],
-      },
-      modelParams: { thinkingMode: "disabled", effort: "medium" },
-    },
-  },
-  {
-    templateId: "analyst",
-    name: "Data Analyst",
-    description: "SQL queries, metrics, and reporting agent",
-    config: {
-      provider: "agent-sdk",
-      model: "claude-haiku-4-5",
-      maxIterations: 30,
-      stateless: true,
-      reasoning: false,
-      toolFilter: {
-        mode: "allowlist",
-        tools: [
-          "remember",
-          "recall",
-          "search_memory",
-          "db_query",
-          "db_list_tables",
-          "db_table_info",
-          "db_row_counts",
-          "get_tool_usage",
-          "get_agent_performance",
-          "get_session_stats",
-          "get_cost_summary",
-          "get_error_summary",
-          "get_activity_timeline",
-          "get_user_activity",
-          "get_subagent_activity",
-          "get_cost_breakdown",
-          "get_observations",
-          "search_observations",
-          "send_message",
-        ],
-      },
-      modelParams: { thinkingMode: "disabled", effort: "medium" },
     },
   },
   {
@@ -201,6 +51,26 @@ export const TEMPLATES: readonly AgentTemplate[] = [
       modelParams: { thinkingMode: "disabled", effort: "medium" },
     },
   },
+];
+
+const SEED_TEMPLATES: readonly AgentTemplate[] = AGENT_SEEDS.map((seed) => ({
+  templateId: seed.id,
+  name: seed.name,
+  description: seed.description ?? "",
+  config: {
+    provider: "agent-sdk",
+    model: seed.model ?? "claude-haiku-4-5",
+    maxIterations: seed.maxIterations ?? 50,
+    stateless: seed.stateless ?? false,
+    reasoning: seed.reasoning ?? false,
+    toolFilter: seed.toolFilter ?? { mode: "all", tools: [] },
+    modelParams: (seed.modelParams as Record<string, unknown>) ?? {},
+  },
+}));
+
+export const TEMPLATES: readonly AgentTemplate[] = [
+  ...GENERIC_TEMPLATES,
+  ...SEED_TEMPLATES,
 ];
 
 function handleList(): { readonly output: string; readonly isError: boolean } {
@@ -254,7 +124,7 @@ export function createAgentTemplatesTool(): ToolDefinition {
         template_id: {
           type: "string",
           description:
-            'Template ID (required for "get"). One of: chatbot, researcher, coder, monitor, analyst, custom.',
+            'Template ID (required for "get"). Use action "list" to see available IDs.',
         },
       },
       required: ["action"],

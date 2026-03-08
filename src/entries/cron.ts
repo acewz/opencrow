@@ -12,6 +12,7 @@ import { createCronScheduler } from "../cron/scheduler";
 import { createDeliveryStore } from "../cron/delivery-store";
 import { createLogger } from "../logger";
 import { seedDefaultCronJobs } from "../gateway/cron-seeds";
+import { seedDefaultAgents } from "../gateway/agent-seeder";
 
 const log = createLogger("cron-entry");
 
@@ -36,6 +37,9 @@ async function main(): Promise<void> {
     config,
     agentBotChannels: new Map(),
   });
+
+  // Seed default agent definitions (idempotent — skips existing DB records)
+  await seedDefaultAgents();
 
   // No local channels — all delivery goes through cron_deliveries table
   const emptyChannels = new Map();

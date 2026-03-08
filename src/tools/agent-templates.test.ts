@@ -53,9 +53,9 @@ describe("createAgentTemplatesTool", () => {
       expect(result.isError).toBe(false);
       expect(result.output).toContain("chatbot");
       expect(result.output).toContain("researcher");
-      expect(result.output).toContain("coder");
-      expect(result.output).toContain("monitor");
-      expect(result.output).toContain("analyst");
+      expect(result.output).toContain("planner");
+      expect(result.output).toContain("debugger");
+      expect(result.output).toContain("digest");
       expect(result.output).toContain("custom");
     });
 
@@ -104,27 +104,26 @@ describe("createAgentTemplatesTool", () => {
       expect(parsed.hint).toContain("manage_agent");
     });
 
-    it("should return full config for coder template", async () => {
+    it("should return full config for planner template", async () => {
       const result = await tool.execute({
         action: "get",
-        template_id: "coder",
+        template_id: "planner",
       });
       expect(result.isError).toBe(false);
       const parsed = JSON.parse(result.output);
-      expect(parsed.config.maxIterations).toBe(200);
+      expect(parsed.config.maxIterations).toBe(30);
       expect(parsed.config.reasoning).toBe(true);
       expect(parsed.config.toolFilter.mode).toBe("all");
     });
 
-    it("should return full config for monitor template", async () => {
+    it("should return full config for digest template", async () => {
       const result = await tool.execute({
         action: "get",
-        template_id: "monitor",
+        template_id: "digest",
       });
       expect(result.isError).toBe(false);
       const parsed = JSON.parse(result.output);
       expect(parsed.config.stateless).toBe(true);
-      expect(parsed.config.toolFilter.tools).toContain("process_manage");
       expect(parsed.config.toolFilter.tools).toContain("send_message");
     });
 
@@ -160,9 +159,9 @@ describe("createAgentTemplatesTool", () => {
     const templateIds = [
       "chatbot",
       "researcher",
-      "coder",
-      "monitor",
-      "analyst",
+      "planner",
+      "debugger",
+      "digest",
       "custom",
     ];
 
