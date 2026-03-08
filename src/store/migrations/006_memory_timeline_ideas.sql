@@ -1,7 +1,7 @@
 DO $$ BEGIN
     ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
     ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check
-      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post'));
+      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','github_repo','observation','idea','app_review','app_ranking'));
   END $$;
 
 ALTER TABLE x_scraped_tweets ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'timeline';

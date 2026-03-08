@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_tool_audit_tool ON tool_audit_log(tool_name, crea
 DO $$ BEGIN
     ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
     ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check
-      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','hf_model','github_repo','arxiv_paper','scholar_paper','observation','idea'));
+      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','github_repo','observation','idea','app_review','app_ranking'));
   END $$;
 
 CREATE TABLE IF NOT EXISTS monitor_alerts (

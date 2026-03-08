@@ -1,7 +1,7 @@
 DO $$ BEGIN
     ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
     ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check
-      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','hf_model','github_repo'));
+      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','github_repo','observation','idea','app_review','app_ranking'));
   END $$;
 
 CREATE TABLE IF NOT EXISTS arxiv_papers (
@@ -54,5 +54,5 @@ CREATE INDEX IF NOT EXISTS idx_scholar_papers_year ON scholar_papers(year DESC, 
 DO $$ BEGIN
     ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
     ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check
-      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','hf_model','github_repo','arxiv_paper','scholar_paper','observation'));
+      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','github_repo','observation','idea','app_review','app_ranking'));
   END $$;

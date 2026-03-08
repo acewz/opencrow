@@ -37,7 +37,7 @@ CREATE INDEX IF NOT EXISTS idx_hf_models_pipeline_tag ON hf_models(pipeline_tag,
 DO $$ BEGIN
     ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
     ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check
-      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','hf_model'));
+      CHECK(kind IN ('conversation','note','document','tweet','article','product','story','reddit_post','github_repo','observation','idea','app_review','app_ranking'));
   END $$;
 
 ALTER TABLE generated_ideas ADD COLUMN IF NOT EXISTS pipeline_stage TEXT DEFAULT 'idea';
