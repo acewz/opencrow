@@ -389,16 +389,9 @@ async function runWithRetryAndEscalation(
 
       // Escalate to a different agent
       try {
-        const { getEscalationTarget } = await import(
-          "../agent/self-reflection"
-        );
-        const mockReflection = {
-          triggerType: "repeated_failures" as const,
-          agentId,
-        };
-        const escalationTarget = getEscalationTarget(
-          mockReflection as Parameters<typeof getEscalationTarget>[0],
-        );
+        // Simple escalation logic: backend → architect, otherwise → backend
+        const escalationTarget =
+          agentId === "backend" ? "architect" : "backend";
 
         if (
           escalationTarget &&

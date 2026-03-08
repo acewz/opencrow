@@ -30,7 +30,6 @@ import { createSkillRoutes } from "./routes/skills";
 import { createUsageRoutes } from "./routes/usage";
 import { createToolsRoutes } from "./routes/tools";
 import { createRoutingRulesRoutes } from "./routes/routing-rules";
-import { createPredictionsRoutes } from "./routes/predictions";
 import { createQueueRoutes } from "./routes/queue";
 import { createFailureRoutes } from "./routes/failures";
 import { createGoogleTrendsRoutes } from "./routes/google-trends";
@@ -377,9 +376,6 @@ export function createWebApp(deps: WebAppDeps): Hono {
 
   const tools = createToolsRoutes();
   app.route("/api", tools);
-
-  const predictions = createPredictionsRoutes();
-  app.route("/api", predictions);
 
   const queue = createQueueRoutes();
   app.route("/api", queue);

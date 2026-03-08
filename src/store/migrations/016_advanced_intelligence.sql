@@ -53,24 +53,7 @@ CREATE INDEX IF NOT EXISTS idx_cross_session_session ON cross_session_context(se
 
 CREATE INDEX IF NOT EXISTS idx_cross_session_expiry ON cross_session_context(expires_at);
 
-CREATE TABLE IF NOT EXISTS self_reflection_logs (
-    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    session_id TEXT NOT NULL,
-    task_hash TEXT,
-    agent_id TEXT NOT NULL,
-    trigger_type TEXT NOT NULL CHECK(trigger_type IN ('timeout', 'loop_detected', 'repeated_failures', 'complexity_overflow', 'manual')),
-    trigger_details_json TEXT NOT NULL DEFAULT '{}',
-    reflection_text TEXT NOT NULL,
-    action_taken TEXT NOT NULL CHECK(action_taken IN ('continue', 'retry', 'escalate', 'switch_agent', 'request_clarification')),
-    escalation_target TEXT,
-    is_resolved BOOLEAN NOT NULL DEFAULT FALSE,
-    resolved_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-  );
-
-CREATE INDEX IF NOT EXISTS idx_self_reflection_session ON self_reflection_logs(session_id, created_at DESC);
-
-CREATE INDEX IF NOT EXISTS idx_self_reflection_agent ON self_reflection_logs(agent_id, trigger_type);
+-- self_reflection_logs table removed - redundant with failure-analyzer.ts
 
 CREATE TABLE IF NOT EXISTS prediction_models (
     id TEXT PRIMARY KEY,
