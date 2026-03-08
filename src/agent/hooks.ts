@@ -1,8 +1,6 @@
-import { SQL } from "bun";
 import { getDb } from "../store/db";
 import { createLogger } from "../logger";
 import type { ProgressEvent } from "./types";
-import { classifyTask } from "./task-classifier";
 
 const log = createLogger("hooks");
 
@@ -240,13 +238,6 @@ function createSessionEndHook(agentId: string): HookCallback {
            SET result = ${result.slice(0, MAX_AUDIT_LENGTH)}, updated_at = NOW()
            WHERE agent_id = ${agentId} AND session_id = ${sessionId}`;
 
-        // Record session outcome for learning (non-critical, fire-and-forget)
-        recordSessionOutcome(db, sessionId, agentId, result).catch(
-          (err: unknown) =>
-            log.warn("Session outcome recording failed", {
-              error: String(err),
-            }),
-        );
       }
       log.info("Session ended", {
         agentId,
@@ -258,64 +249,6 @@ function createSessionEndHook(agentId: string): HookCallback {
     }
     return {};
   };
-}
-
-/**
- * Phase 2 & 4: Record session outcome for learning
- */
-async function recordSessionOutcome(
-  db: InstanceType<typeof SQL>,
-  sessionId: string,
-  agentId: string,
-  result: string,
-): Promise<void> {
-  try {
-    const { recordTaskOutcome } = await import("./outcome-tracker");
-
-    // Get the routing decision to find task hash and domain
-    const routingDecision = await db`
-      SELECT task_hash, selected_agent_id, domain
-      FROM routing_decisions
-      WHERE session_id = ${sessionId}
-      ORDER BY created_at DESC
-      LIMIT 1
-    `;
-
-    if (!routingDecision || routingDecision.length === 0) {
-      const taskHash = `session-${sessionId}-${Date.now()}`;
-      await recordTaskOutcome({
-        taskId: sessionId,
-        sessionId,
-        taskHash,
-        domain: "general",
-        agentsSpawned: [agentId],
-        revisionCount: 0,
-        timeToCompleteSec: undefined,
-      });
-      return;
-    }
-
-    const { task_hash, domain } = routingDecision[0];
-
-    await recordTaskOutcome({
-      taskId: sessionId,
-      sessionId,
-      taskHash: task_hash,
-      domain: domain || "general",
-      agentsSpawned: [agentId],
-      revisionCount: 0,
-      timeToCompleteSec: undefined,
-    });
-
-    log.debug("Recorded session outcome", {
-      sessionId,
-      taskHash: task_hash,
-      domain,
-      agentId,
-    });
-  } catch (err) {
-    log.warn("Failed to record session outcome", { error: String(err) });
-  }
 }
 
 // ─── SubagentStart: Track subagent spawning ────────────────────────────────
@@ -332,12 +265,6 @@ function createSubagentStartHook(agentId: string): HookCallback {
         await db`INSERT INTO subagent_audit_log (parent_agent_id, session_id, subagent_id, task, created_at)
            VALUES (${agentId}, ${sessionId}, ${subagentId}, ${task}, NOW())`;
 
-        // Classify the subagent task asynchronously (non-critical, fire-and-forget)
-        classifyTask(task, sessionId || undefined).catch((err: unknown) =>
-          log.warn("Subagent task classification failed", {
-            error: String(err),
-          }),
-        );
       }
       log.info("Subagent started", {
         agentId,
@@ -370,50 +297,6 @@ function createSubagentStopHook(agentId: string): HookCallback {
              AND session_id = ${sessionId}
              AND subagent_id = ${subagentId}
              AND completed_at IS NULL`;
-
-        // Phase 2: Routing Feedback Loop - update scores based on outcome
-        updateRoutingScores(db, sessionId, subagentId, status).catch(
-          (err: unknown) =>
-            log.warn("Routing score update failed", { error: String(err) }),
-        );
-
-        // Record revision/failure
-        if (status !== "completed") {
-          const { recordRevision } = await import("./outcome-tracker");
-          const { classifyTask } = await import("./task-classifier");
-
-          const task = String(input.task ?? "");
-          const { taskHash } = await classifyTask(task, sessionId);
-
-          await recordRevision(
-            sessionId,
-            taskHash,
-            1,
-            subagentId,
-            result.slice(0, 500),
-          );
-
-          const { recordFailure } = await import("./failure-analyzer");
-          await recordFailure(
-            sessionId,
-            subagentId,
-            "general",
-            result.slice(0, 500),
-            status === "timeout" ? "timeout" : "error",
-          );
-        }
-
-        // Phase 5: Timeout/loop detection removed - handled by failure-analyzer.ts
-
-        // Phase 3: Update agent load (decrement on completion)
-        if (
-          status === "completed" ||
-          status === "error" ||
-          status === "timeout"
-        ) {
-          const { updateAgentLoad } = await import("./load-balancer");
-          await updateAgentLoad(subagentId, -1);
-        }
       }
 
       log.info("Subagent stopped", {
@@ -429,58 +312,6 @@ function createSubagentStopHook(agentId: string): HookCallback {
   };
 }
 
-/**
- * Phase 2: Routing Feedback Loop
- * Update agent scores based on subagent outcomes
- */
-async function updateRoutingScores(
-  db: InstanceType<typeof SQL>,
-  sessionId: string,
-  agentId: string,
-  status: string,
-): Promise<void> {
-  // Get the routing decision for this session
-  const routingDecision = await db`
-    SELECT selected_agent_id, outcome_status
-    FROM routing_decisions
-    WHERE session_id = ${sessionId}
-    ORDER BY created_at DESC
-    LIMIT 1
-  `;
-
-  if (!routingDecision || routingDecision.length === 0) {
-    return; // No routing decision to update
-  }
-
-  // Update the routing decision outcome
-  const outcomeStatus = status === "completed" ? "completed" : "error";
-  await db`
-    UPDATE routing_decisions
-    SET outcome_status = ${outcomeStatus}
-    WHERE session_id = ${sessionId} AND outcome_status IS NULL
-  `;
-
-  // Adjust agent scores based on outcome
-  // Success: +5% to score for this domain
-  // Failure: -10% to score for this domain
-  const adjustment = outcomeStatus === "completed" ? 0.05 : -0.1;
-
-  await db`
-    UPDATE agent_scores
-    SET score = LEAST(1.0, GREATEST(0.0, score + ${adjustment})),
-        computed_at = NOW()
-    WHERE agent_id = ${agentId}
-      AND time_window = '1h'
-  `;
-
-  log.debug("Updated routing scores", {
-    sessionId,
-    agentId,
-    outcome: outcomeStatus,
-    adjustment,
-  });
-}
-
 // ─── UserPromptSubmit: Log user prompts ────────────────────────────────────
 
 function createUserPromptHook(agentId: string): HookCallback {
@@ -492,22 +323,11 @@ function createUserPromptHook(agentId: string): HookCallback {
         String(input.prompt ?? ""),
         MAX_PROMPT_LENGTH,
       );
-      const timestamp = new Date().toISOString();
-
       if (prompt && sessionId) {
         db`INSERT INTO user_prompt_log (agent_id, session_id, prompt, created_at)
            VALUES (${agentId}, ${sessionId}, ${prompt}, NOW())`.catch(
           (err: unknown) =>
             log.warn("User prompt log insert failed", { error: String(err) }),
-        );
-
-        // Classify the task asynchronously (bounded to 5s to avoid blocking DB shutdown)
-        const classifyTimeout = new Promise<void>((_, reject) =>
-          setTimeout(() => reject(new Error("classify timeout")), 5000),
-        );
-        Promise.race([classifyTask(prompt, sessionId), classifyTimeout]).catch(
-          (err: unknown) =>
-            log.warn("Task classification failed", { error: String(err) }),
         );
 
         // Phase 5: Extract and save user preferences from message

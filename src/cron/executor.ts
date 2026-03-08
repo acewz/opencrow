@@ -13,9 +13,6 @@ import { archiveStaleSignals } from "../sources/ideas/signals-store";
 import { formatIdeasMessage } from "./format-ideas";
 
 import { createLogger } from "../logger";
-import { runScoringEngine } from "./scoring-engine";
-import { runWorkloadSampler } from "./workload-sampler";
-import { runFailureClusterCompute } from "./failure-cluster-compute";
 import { getErrorMessage } from "../lib/error-serialization";
 const IDEA_GEN_AGENTS = new Set([
   "mobile-idea-gen",
@@ -46,7 +43,7 @@ const PROGRESS_FLUSH_INTERVAL_MS = 2000;
 const MAX_PROGRESS_TEXT_LENGTH = 200;
 
 /**
- * Execute internal handlers (e.g., scoring-engine) without spawning an agent
+ * Execute internal handlers (e.g., signal-archival, db-retention) without spawning an agent
  */
 async function executeInternalHandler(
   job: CronJob,
@@ -75,18 +72,6 @@ async function executeInternalHandler(
 
   try {
     switch (handler) {
-      case "scoring-engine":
-        await runScoringEngine();
-        resultSummary = "Scoring engine completed successfully";
-        break;
-      case "workload-sampler":
-        await runWorkloadSampler();
-        resultSummary = "Workload sampling completed";
-        break;
-      case "failure-cluster-compute":
-        await runFailureClusterCompute();
-        resultSummary = "Failure cluster computation completed";
-        break;
       case "signal-archival":
         const archivedCount = await archiveStaleSignals(14);
         resultSummary = `Signal archival: ${archivedCount} stale signals archived`;
@@ -210,7 +195,7 @@ export async function executeCronJob(
 
   log.info("Executing cron job", { jobId: job.id, name: job.name, runId });
 
-  // Check if this is an internal handler (e.g., scoring-engine)
+  // Check if this is an internal handler
   if (job.payload.kind === "internal" && job.payload.handler) {
     return await executeInternalHandler(
       job,

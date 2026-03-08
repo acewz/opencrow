@@ -6,7 +6,6 @@ import { closeDb } from "./store/db";
 import type { AgentRegistry } from "./agents/registry";
 import { createCronStore } from "./cron/store";
 import { createCronScheduler, type CronScheduler } from "./cron/scheduler";
-import { registerScoringCronJob } from "./cron/scoring-engine";
 import { createLogger } from "./logger";
 import type { MemoryManager } from "./memory/types";
 import type { ObservationHook } from "./memory/observation-hook";
@@ -188,9 +187,6 @@ export function createGateway(config: OpenCrowConfig): Gateway {
       ctx.cronToolConfig = {};
       cronScheduler.start();
       log.info("Cron scheduler started", { tickIntervalMs: config.cron.tickIntervalMs });
-
-      // Register performance scoring engine (runs every 5 minutes)
-      await registerScoringCronJob();
 
       // Seed default cron jobs (idempotent — skips already-registered jobs)
       await seedDefaultCronJobs({

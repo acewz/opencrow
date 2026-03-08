@@ -19,7 +19,6 @@ import {
   clearSdkSession,
   clearAllSdkSessions,
 } from "../../store/sdk-sessions";
-import { getQuestionBus } from "../../agent/question-bus";
 import { createLogger } from "../../logger";
 
 const log = createLogger("telegram:agent-handler");
@@ -68,7 +67,6 @@ export function createAgentBotHandler(deps: AgentBotHandlerDeps): void {
     if (text === "/stop" || text.startsWith("/stop@")) {
       const active = activeSessions.get(msg.chatId);
       if (active) {
-        getQuestionBus().cancel(msg.chatId);
         active.abort();
         activeSessions.delete(msg.chatId);
         log.info("Stopped in-flight chat on /stop (agent bot)", {
@@ -85,7 +83,6 @@ export function createAgentBotHandler(deps: AgentBotHandlerDeps): void {
     if (text === "/clear") {
       const active = activeSessions.get(msg.chatId);
       if (active) {
-        getQuestionBus().cancel(msg.chatId);
         active.abort();
         activeSessions.delete(msg.chatId);
         log.info("Aborted in-flight chat on /clear (agent bot)", {
@@ -102,17 +99,6 @@ export function createAgentBotHandler(deps: AgentBotHandlerDeps): void {
     if (!text.trim()) return;
 
     if (activeSessions.has(msg.chatId)) {
-      // If there's a pending question, route the reply as the answer
-      const bus = getQuestionBus();
-      if (bus.hasPending(msg.chatId)) {
-        bus.answer(msg.chatId, text);
-        log.info("Routed user message as question answer", {
-          agentId,
-          chatId: msg.chatId,
-        });
-        return;
-      }
-
       await channel.sendMessage(msg.chatId, {
         text: "Still working on your previous message. Use /stop to cancel it first.",
       });
@@ -147,21 +133,6 @@ export function createAgentBotHandler(deps: AgentBotHandlerDeps): void {
 
     const freshAgent = agentRegistry?.getById(agentId) ?? agent;
     let baseAgentOpts = await buildOptions(freshAgent, tracker.onProgress);
-
-    // Inject ask_user tool so the agent can ask questions mid-execution
-    if (baseAgentOpts.toolRegistry) {
-      const { createAskUserTool } = await import("../../tools/ask-user");
-      const askUserTool = createAskUserTool({
-        chatId: msg.chatId,
-        sendMessage: async (content) => {
-          await channel.sendMessage(msg.chatId, content);
-        },
-      });
-      baseAgentOpts = {
-        ...baseAgentOpts,
-        toolRegistry: baseAgentOpts.toolRegistry.withTools([askUserTool]),
-      };
-    }
 
     const isAgentSdk = (baseAgentOpts.provider ?? "agent-sdk") === "agent-sdk";
     const existingSdkSession = isAgentSdk

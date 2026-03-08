@@ -1,7 +1,5 @@
 /**
  * Common English stop words for keyword extraction.
- *
- * Shared across task-classifier and context-extractor.
  */
 export const STOP_WORDS: ReadonlySet<string> = new Set([
   "a",

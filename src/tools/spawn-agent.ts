@@ -6,8 +6,6 @@ import type { ResolvedAgent } from "../agents/types";
 import type { ProgressEvent } from "../agent/types";
 import { runAgentIsolated } from "../agents/runner";
 import { createLogger } from "../logger";
-import { routeTask } from "../agent/intelligent-router";
-import { classifyTask } from "../agent/task-classifier";
 import type { AgentRunResult } from "../agents/runner";
 
 const log = createLogger("tool:spawn-agent");
@@ -83,13 +81,8 @@ export function createSpawnAgentTool(
         };
       }
 
-      // Determine target agent: explicit request > intelligent routing > default
+      // Determine target agent: explicit request > first allowed > default
       let targetAgentId: string;
-      let routingReason = "explicit selection";
-      let confidence: "high" | "medium" | "low" = "high";
-      let routedDomain = "unknown";
-      let classification: Awaited<ReturnType<typeof classifyTask>> | null =
-        null;
 
       if (requestedAgentId) {
         // User explicitly requested an agent - validate it's allowed
@@ -103,45 +96,13 @@ export function createSpawnAgentTool(
           };
         }
         targetAgentId = requestedAgentId;
-      } else if (allowedAgents.includes("*") || allowedAgents.length > 1) {
-        // Multiple agents allowed - use intelligent routing
-        try {
-          // Classify the task to determine domain
-          classification = await classifyTask(task);
-
-          // Route to best agent for this domain
-          const routing = await routeTask(classification!.domain, task);
-          targetAgentId = routing.selectedAgentId;
-          routingReason = routing.decisionReason;
-          confidence = routing.confidence;
-
-          routedDomain = classification.domain;
-
-          log.info("Intelligent routing selected agent", {
-            task: task.slice(0, 100),
-            domain: routedDomain,
-            selectedAgent: targetAgentId,
-            reason: routingReason,
-            confidence,
-          });
-        } catch (err) {
-          log.warn("Intelligent routing failed, using fallback", {
-            error: String(err),
-          });
-          // Fallback to first allowed agent (excluding wildcard) or first available agent
-          const nonWildcardAgents = allowedAgents.filter((id) => id !== "*");
-          targetAgentId =
-            nonWildcardAgents[0] ||
-            config.agentRegistry.getDefault()?.id ||
-            "general-purpose";
-          routingReason = "routing failed, using fallback";
-          confidence = "low";
-        }
       } else {
-        // Only one agent allowed - use it
-        targetAgentId = allowedAgents.filter((id) => id !== "*")[0] ?? "general-purpose";
-        routingReason = "only one agent allowed";
-        confidence = "high";
+        // Pick first allowed agent (excluding wildcard) or fall back to default
+        const nonWildcardAgents = allowedAgents.filter((id) => id !== "*");
+        targetAgentId =
+          nonWildcardAgents[0] ||
+          config.agentRegistry.getDefault()?.id ||
+          "general-purpose";
       }
 
       if (!targetAgentId) {
@@ -149,21 +110,6 @@ export function createSpawnAgentTool(
           output: "Error: no agent_id specified and no default agent available",
           isError: true,
         };
-      }
-
-      // Double-check: intelligent router might pick an agent not in allowed list
-      const isAllowed =
-        allowedAgents.includes("*") || allowedAgents.includes(targetAgentId);
-      if (!isAllowed) {
-        // Intelligent router picked an agent not in the allowed list - fall back
-        log.warn("Router selected disallowed agent, falling back", {
-          selectedAgent: targetAgentId,
-          allowedAgents,
-        });
-        targetAgentId =
-          allowedAgents.find((id) => id !== "*") || "general-purpose";
-        routingReason = "router picked disallowed agent, using fallback";
-        confidence = "low";
       }
 
       const targetAgent = config.agentRegistry.getById(targetAgentId);
@@ -190,7 +136,6 @@ export function createSpawnAgentTool(
         targetAgentId,
         task,
         sessionKey,
-        routedDomain,
       );
     },
   };
@@ -202,7 +147,6 @@ async function executeSingleAgent(
   targetAgentId: string,
   task: string,
   sessionKey: string,
-  routedDomain: string,
 ): Promise<{ output: string; isError: boolean }> {
   const targetAgent = config.agentRegistry.getById(targetAgentId);
   if (!targetAgent) {
@@ -225,23 +169,6 @@ async function executeSingleAgent(
     task,
     abortController,
   });
-
-  // Log agent's current performance score for observability
-  try {
-    const { getAgentScore } = await import("../agent/scoring-engine");
-    const score = await getAgentScore(targetAgentId, routedDomain || null);
-    if (score) {
-      log.info("Agent score at spawn time", {
-        agentId: targetAgentId,
-        domain: routedDomain,
-        score: score.score.toFixed(3),
-        successRate: (score.successRate * 100).toFixed(0) + "%",
-        totalTasks: score.totalTasks,
-      });
-    }
-  } catch {
-    // score lookup is non-fatal
-  }
 
   log.info("Spawning sub-agent", {
     runId,

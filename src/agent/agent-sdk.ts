@@ -32,7 +32,7 @@ import {
   MAX_DETAIL_LENGTH,
   MAX_THINKING_SUMMARY,
 } from "./sdk-progress";
-import { recordToolResult } from "./tool-stats";
+
 
 
 const log = createLogger("agent-sdk");
@@ -327,12 +327,6 @@ async function runQuery(
                 );
             }
             const matchedToolName = pendingToolNames.shift() ?? "unknown";
-            recordToolResult(
-              agentId,
-              matchedToolName,
-              isErr,
-              isErr ? resultStr.slice(0, 500) : undefined,
-            );
             onProgress?.({
               type: "tool_done",
               agentId,

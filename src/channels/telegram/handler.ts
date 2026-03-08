@@ -1,7 +1,6 @@
 import type { Bot, Context } from "grammy";
 import { sequentialize } from "@grammyjs/runner";
 import type { IncomingMessage, MessageHandler } from "../types";
-import { getQuestionBus } from "../../agent/question-bus";
 import { clearObservationsByChat } from "../../store/observations";
 import { createLogger } from "../../logger";
 
@@ -74,22 +73,6 @@ export function createTelegramHandler(
     if (!chatId || !data) {
       await ctx.answerCallbackQuery();
       return;
-    }
-
-    const bus = getQuestionBus();
-    if (bus.hasPending(chatId)) {
-      bus.answer(chatId, data);
-      log.info("Routed callback query as question answer", { chatId, data });
-
-      // Edit the message to show the selected option and remove keyboard
-      try {
-        const originalText = ctx.callbackQuery.message?.text ?? "";
-        await ctx.editMessageText(`${originalText}\n\n✅ Selected: ${data}`, {
-          reply_markup: undefined,
-        });
-      } catch {
-        // best-effort — message may not be editable
-      }
     }
 
     // Always answer callback query to dismiss the loading spinner

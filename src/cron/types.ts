@@ -10,7 +10,7 @@ export interface CronPayload {
   readonly message?: string;
   readonly agentId?: string;
   readonly timeoutSeconds?: number;
-  readonly handler?: string; // For internal handlers (e.g., "scoring-engine")
+  readonly handler?: string; // For internal handlers (e.g., "signal-archival", "db-retention")
   readonly mode?: IdeaGenMode; // For idea-gen agents: pipeline (default) or full
 }
 

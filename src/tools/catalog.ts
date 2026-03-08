@@ -39,8 +39,6 @@ import { createProjectContextTool } from "./project-context";
 import { createValidateCodeTool } from "./validate-code";
 import { createRunTestsTool } from "./run-tests";
 
-import { createAgentCapacityTool } from "./agent-capacity";
-import { createFailurePatternsTool } from "./failure-patterns";
 import { createListSkillsTool } from "./list-skills";
 import { createUseSkillTool } from "./use-skill";
 
@@ -222,9 +220,6 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
   get_subagent_activity: "analytics",
   get_session_analysis: "analytics",
   get_health_dashboard: "analytics",
-  agent_capacity: "analytics",
-  failure_patterns: "analytics",
-
   // Routing
   get_routing_dashboard: "routing",
   get_routing_stats: "routing",
@@ -265,8 +260,6 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
   git_operations: "development",
 
   // Communication
-  send_message: "system",
-  ask_user: "system",
   web_fetch: "system",
   agent_templates: "system",
   manage_agent: "system",
@@ -428,10 +421,6 @@ export function buildToolCatalog(): readonly ToolCatalogEntry[] {
   tools.push(createProjectContextTool(defaultConfig));
   tools.push(createValidateCodeTool(defaultConfig));
   tools.push(createRunTestsTool(defaultConfig));
-  // Agent capacity & failure patterns
-  tools.push(createAgentCapacityTool());
-  tools.push(createFailurePatternsTool());
-
   // Deduplicate by name (last wins)
   const seen = new Map<string, ToolCatalogEntry>();
   for (const tool of tools) {

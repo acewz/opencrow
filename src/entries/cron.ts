@@ -98,10 +98,6 @@ async function main(): Promise<void> {
   const { ensureDbRetentionJob } = await import("../cron/db-retention");
   await ensureDbRetentionJob(cronStore);
 
-  // --- Tool stats flusher ---
-  const { startToolStatsFlush } = await import("../agent/tool-stats");
-  startToolStatsFlush();
-
   const supervisor = createProcessSupervisor("cron", {
     type: "cron",
   });

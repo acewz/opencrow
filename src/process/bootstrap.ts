@@ -49,8 +49,6 @@ import { createPHTools } from "../tools/ph";
 import { createHNTools } from "../tools/hn";
 import { createHFTools } from "../tools/huggingface";
 import { createRedditTools } from "../tools/reddit";
-import { createAgentCapacityTool } from "../tools/agent-capacity";
-import { createFailurePatternsTool } from "../tools/failure-patterns";
 import { createGithubTools } from "../tools/github";
 import { createArxivTools } from "../tools/arxiv";
 import { createScholarTools } from "../tools/scholar";
@@ -77,7 +75,6 @@ import { createMemoryStatsTools } from "../tools/memory-stats";
 import { createEconomicCalendarTool } from "../tools/economic-calendar";
 
 import { createDbTools } from "../tools/db-query";
-import { createSendMessageTool } from "../tools/send-message";
 
 const log = createLogger("bootstrap");
 
@@ -172,8 +169,6 @@ export async function bootstrap(
     const registry = createToolRegistry(config.tools).withTools([
       createListSkillsTool(),
       createUseSkillTool(),
-      createAgentCapacityTool(),
-      createFailurePatternsTool(),
     ]);
     // Create router for smart tool selection
     toolRouter = createToolRouter(registry.definitions);
@@ -554,11 +549,6 @@ export async function bootstrap(
         allowsTool(t.name),
       );
       if (calendarTools.length > 0) registry = registry.withTools(calendarTools);
-    }
-
-    // Inter-agent messaging
-    if (allowsTool("send_agent_message")) {
-      registry = registry.withTools([createSendMessageTool(agent.id)]);
     }
 
     // Development tools
