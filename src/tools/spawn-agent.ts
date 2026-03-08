@@ -8,12 +8,6 @@ import { runAgentIsolated } from "../agents/runner";
 import { createLogger } from "../logger";
 import { routeTask } from "../agent/intelligent-router";
 import { classifyTask } from "../agent/task-classifier";
-import {
-  shouldDecompose,
-  decomposeTask,
-  saveDecomposition,
-  updateDecompositionStatus,
-} from "../agent/task-decomposer";
 import type { AgentRunResult } from "../agents/runner";
 import {
   enqueueTask,
@@ -207,23 +201,6 @@ export function createSpawnAgentTool(
           output: `Error: max children limit reached (${currentAgent.subagents.maxChildren})`,
           isError: true,
         };
-      }
-
-      // --- Improvement #4: Auto-chain decomposition ---
-      // When no explicit agent is requested and task is complex, auto-decompose
-      if (
-        !requestedAgentId &&
-        routedDomain !== "unknown" &&
-        shouldDecompose(task, classification?.complexityScore ?? 3, routedDomain)
-      ) {
-        return executeDecompositionChain(
-          config,
-          task,
-          routedDomain,
-          classification?.complexityScore ?? 4,
-          allowedAgents,
-          sessionKey,
-        );
       }
 
       // --- Single agent execution with context propagation + retry ---
@@ -459,142 +436,4 @@ async function runWithRetryAndEscalation(
       throw retryError;
     }
   }
-}
-
-/** Execute a decomposition chain: multiple agents in sequence with context propagation */
-async function executeDecompositionChain(
-  config: SpawnAgentToolConfig,
-  task: string,
-  domain: string,
-  complexity: number,
-  allowedAgents: readonly string[],
-  sessionKey: string,
-): Promise<{ output: string; isError: boolean }> {
-  const decomposition = decomposeTask(
-    config.sessionId,
-    task,
-    complexity,
-    domain,
-  );
-
-  // Save decomposition for tracking
-  try {
-    await saveDecomposition(decomposition);
-  } catch (err) {
-    log.warn("Failed to save decomposition", { error: String(err) });
-  }
-
-  log.info("Starting decomposition chain", {
-    domain,
-    complexity,
-    steps: decomposition.spawnChain.length,
-    agents: decomposition.executionOrder.join(" → "),
-  });
-
-  const chainResults: Array<{ agentId: string; result: string }> = [];
-
-  for (const step of decomposition.spawnChain) {
-    // Validate agent is allowed
-    const stepAllowed =
-      allowedAgents.includes("*") || allowedAgents.includes(step.agentId);
-    if (!stepAllowed) {
-      log.warn("Skipping disallowed agent in chain", {
-        agentId: step.agentId,
-      });
-      continue;
-    }
-
-    const stepAgent = config.agentRegistry.getById(step.agentId);
-    if (!stepAgent) {
-      log.warn("Skipping unknown agent in chain", { agentId: step.agentId });
-      continue;
-    }
-
-    const stepRunId = crypto.randomUUID();
-    const stepTask = `## Goal\n${step.goal}\n\n## Original Task\n${task}`;
-
-    await config.tracker.register({
-      id: stepRunId,
-      parentAgentId: config.currentAgentId,
-      parentSessionKey: sessionKey,
-      childAgentId: step.agentId,
-      childSessionKey: `subagent:${stepRunId}`,
-      task: stepTask,
-    });
-
-    config.onProgress?.({
-      type: "subagent_start",
-      agentId: config.currentAgentId,
-      childAgent: step.agentId,
-      task: stepTask,
-    });
-
-    try {
-      const stepResult = await runAgentIsolated({
-        agentRegistry: config.agentRegistry,
-        baseToolRegistry: config.baseToolRegistry,
-        agentId: step.agentId,
-        task: stepTask,
-        maxIterations: stepAgent.maxIterations ?? config.maxIterations,
-        buildRegistryForAgent: config.buildRegistryForAgent,
-        buildSystemPrompt: config.buildSystemPrompt,
-        onProgress: config.onProgress,
-        previousResults: chainResults,
-      });
-
-      await config.tracker.complete(stepRunId, stepResult.text);
-      chainResults.push({ agentId: step.agentId, result: stepResult.text });
-
-      config.onProgress?.({
-        type: "subagent_done",
-        agentId: config.currentAgentId,
-        childAgent: step.agentId,
-      });
-
-      log.info("Chain step completed", {
-        step: step.stepOrder,
-        agentId: step.agentId,
-        totalSteps: decomposition.spawnChain.length,
-      });
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : String(error);
-      await config.tracker.fail(stepRunId, msg);
-
-      config.onProgress?.({
-        type: "subagent_done",
-        agentId: config.currentAgentId,
-        childAgent: step.agentId,
-      });
-
-      log.error("Chain step failed, aborting", {
-        step: step.stepOrder,
-        agentId: step.agentId,
-        error: msg,
-      });
-      break;
-    }
-  }
-
-  // Update decomposition status
-  try {
-    const status =
-      chainResults.length === decomposition.spawnChain.length
-        ? "completed"
-        : chainResults.length > 0
-          ? "partial"
-          : "failed";
-    await updateDecompositionStatus(decomposition.id, status, new Date());
-  } catch {
-    // best-effort
-  }
-
-  if (chainResults.length === 0) {
-    return { output: "Decomposition chain failed: no steps completed", isError: true };
-  }
-
-  const output = chainResults
-    .map((r) => `## ${r.agentId}\n${r.result}`)
-    .join("\n\n---\n\n");
-
-  return { output, isError: false };
 }

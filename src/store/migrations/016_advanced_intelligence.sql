@@ -1,21 +1,3 @@
-CREATE TABLE IF NOT EXISTS task_decompositions (
-    id TEXT PRIMARY KEY,
-    session_id TEXT NOT NULL,
-    task_hash TEXT NOT NULL,
-    original_task TEXT NOT NULL,
-    complexity_score INTEGER NOT NULL DEFAULT 1,
-    decomposition_json TEXT NOT NULL DEFAULT '{}',
-    spawn_chain_json TEXT NOT NULL DEFAULT '[]',
-    execution_order TEXT[] NOT NULL DEFAULT '{}',
-    status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending', 'in_progress', 'completed', 'failed', 'partial')),
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    completed_at TIMESTAMPTZ
-  );
-
-CREATE INDEX IF NOT EXISTS idx_task_decompositions_session ON task_decompositions(session_id);
-
-CREATE INDEX IF NOT EXISTS idx_task_decompositions_status ON task_decompositions(status, created_at DESC);
-
 CREATE TABLE IF NOT EXISTS prediction_records (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     session_id TEXT NOT NULL,
@@ -127,5 +109,3 @@ CREATE TABLE IF NOT EXISTS prediction_performance (
 CREATE INDEX IF NOT EXISTS idx_prediction_performance_domain ON prediction_performance(domain);
 
 ALTER TABLE task_embeddings ADD COLUMN IF NOT EXISTS complexity_score INTEGER DEFAULT 1;
-
-ALTER TABLE task_embeddings ADD COLUMN IF NOT EXISTS requires_decomposition BOOLEAN DEFAULT FALSE;
