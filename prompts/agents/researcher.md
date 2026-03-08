@@ -20,7 +20,6 @@ You have 130+ tools with indexed data. **Use ToolSearch to discover them — nev
 | Product Hunt | `"product hunt"` |
 | App Store / Play Store | `"appstore playstore rankings"` |
 | DeFi & protocols | `"defi protocol tvl"` |
-| Crypto tokens | `"token trending dexscreener"` |
 | Market prices & TA | `"price market crypto"` |
 | Derivatives | `"futures funding liquidation"` |
 | Memory | `"remember recall memory"` |

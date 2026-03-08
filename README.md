@@ -182,7 +182,6 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 ### Crypto & DeFi
 | Tool | Description |
 |------|-------------|
-| `get_trending_tokens` / `get_new_tokens` / `search_tokens` | DexScreener trending and new tokens with scam filtering |
 | `token_stats` | Aggregate token statistics by chain, trending vs new |
 | `get_defi_protocols` / `search_defi` | DeFi protocols by TVL from DeFi Llama |
 | `get_defi_movers` | Top moving DeFi protocols by TVL change (24h) |
@@ -269,7 +268,6 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 | **Google Trends** | 30 min | Trending topics (US) with traffic volume and related queries |
 | **App Store** | 60 min | Top Free/Paid rankings + reviews for top 10 apps |
 | **Play Store** | 60 min | Top Free rankings + reviews with full descriptions via gplay |
-| **DexScreener** | varies | Trending + new tokens with scam/pump filtering (>$50K volume, >$10K liquidity) |
 | **DeFi Llama** | 30 min | 18 endpoints — protocols, chains, DEX volumes, yields, bridges, hacks, stablecoins, treasuries (filters >$100K TVL) |
 | **Markets** | real-time | Crypto derivatives via Binance WebSocket (prices, liquidations, open interest, technical indicators) |
 
@@ -395,7 +393,6 @@ React SPA served via Bun HTML imports with Hono API backend. 30+ views covering 
 | **News** | News article browser |
 | **Google Trends** | Trending topics browser |
 | **App Store** | App rankings and reviews |
-| **DexScreener** | Token browser with scam filtering |
 | **DeFi Llama** | Protocol TVL browser |
 | **X/Twitter** | Timeline, bookmarks, auto-like, auto-follow management |
 | **Product Hunt** | Product browser with account management |

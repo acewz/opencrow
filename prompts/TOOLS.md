@@ -26,7 +26,6 @@ Web search (`WebSearch`) is a **last resort** — only use it when:
 |-------|-----------------|
 | Crypto prices & trading | `"price market crypto"`, `"futures funding liquidation"` |
 | DeFi protocols & chains | `"defi protocol tvl"`, `"yield bridge stablecoin"` |
-| DexScreener tokens | `"token trending dexscreener"` |
 | News & economic calendar | `"news digest calendar"` |
 | Hacker News | `"hacker news"` |
 | Reddit | `"reddit digest"` |
