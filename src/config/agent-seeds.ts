@@ -70,11 +70,6 @@ const GITHUB_TOOLS = [
   "search_github_repos",
 ] as const;
 
-const ARXIV_TOOLS = [
-  "get_arxiv_papers",
-  "search_arxiv_papers",
-] as const;
-
 const OBSERVABILITY_TOOLS = [
   "get_scraper_status",
   "get_subagent_runs",
@@ -83,7 +78,6 @@ const OBSERVABILITY_TOOLS = [
 ] as const;
 
 const DEFI_TOOLS = [
-  "get_defi_protocols",
   "get_defi_movers",
   "get_chain_tvls",
   "get_chain_metrics",
@@ -189,7 +183,6 @@ export const AGENT_SEEDS: readonly AgentDefinition[] = [
         ...HN_TOOLS,
         ...PRODUCT_TOOLS,
         ...CROSS_SOURCE_TOOLS,
-        ...ARXIV_TOOLS,
         ...GITHUB_TOOLS,
         ...OBSERVABILITY_TOOLS,
       ],
@@ -425,7 +418,6 @@ export const AGENT_SEEDS: readonly AgentDefinition[] = [
         ...PRODUCT_TOOLS,
         ...CROSS_SOURCE_TOOLS,
         ...GITHUB_TOOLS,
-        ...ARXIV_TOOLS,
         ...OBSERVABILITY_TOOLS,
       ],
     },
@@ -474,7 +466,6 @@ export const AGENT_SEEDS: readonly AgentDefinition[] = [
         ...PRODUCT_TOOLS,
         ...CROSS_SOURCE_TOOLS,
         ...GITHUB_TOOLS,
-        ...ARXIV_TOOLS,
         "get_calendar",
         "read_file",
         "grep",

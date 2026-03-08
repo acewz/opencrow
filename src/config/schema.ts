@@ -291,7 +291,6 @@ export const scraperProcessesConfigSchema = z
       "x-timeline",
       "appstore",
       "playstore",
-      "defillama",
     ],
   });
 

@@ -43,9 +43,7 @@ function mockMemoryManager(
     indexIdea: async () => "ok",
     indexAppReviews: async () => "ok",
     indexAppRankings: async () => "ok",
-    indexTrends: async () => "ok",
-    indexDefiProtocols: async () => "ok",
-    indexDexTokens: async () => "ok",
+
     getStats: async () => ({ sourceCount: 0, chunkCount: 0, totalTokens: 0 }),
   } as unknown as MemoryManager;
 }

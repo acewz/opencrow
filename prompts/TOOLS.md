@@ -30,7 +30,6 @@ Web search (`WebSearch`) is a **last resort** — only use it when:
 | Hacker News | `"hacker news"` |
 | Reddit | `"reddit digest"` |
 | GitHub repos | `"github trending"` |
-| arXiv papers | `"arxiv papers"` |
 | Product Hunt | `"product hunt"` |
 | App Store / Play Store | `"appstore playstore rankings"` |
 | X / Twitter | `"twitter timeline tweets"` |

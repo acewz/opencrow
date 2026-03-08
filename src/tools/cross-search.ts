@@ -44,7 +44,7 @@ export function createCrossSourceSearchTool(
   return {
     name: "cross_source_search",
     description:
-      "Search across ALL indexed sources in one call: news, Hacker News, Reddit, X/Twitter, Product Hunt, GitHub, arXiv. Returns results ranked by relevance with source labels. Use this instead of calling 5+ individual search tools when you need a broad sweep across sources.",
+      "Search across ALL indexed sources in one call: news, Hacker News, Reddit, X/Twitter, Product Hunt, GitHub. Returns results ranked by relevance with source labels. Use this instead of calling 5+ individual search tools when you need a broad sweep across sources.",
     inputSchema: {
       type: "object",
       properties: {

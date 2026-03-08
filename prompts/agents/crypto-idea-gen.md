@@ -16,7 +16,6 @@ Each run is a full pipeline: research first, then ideate from what you found. Ex
 
 **Step 1 — On-chain & DeFi intelligence (MANDATORY every run):**
 - Call `get_defi_movers` to spot protocols with biggest TVL swings — where is money flowing?
-- Call `get_defi_protocols` to see top protocols by TVL and their 24h/7d changes
 - Call `get_yield_pools` to find yield anomalies and new farming opportunities
 - Call `get_defi_hacks` to see recent exploits — every hack reveals a structural problem worth solving
 - Call `get_bridges` to check bridge volumes — cross-chain activity signals emerging needs

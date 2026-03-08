@@ -180,7 +180,7 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 | Tool | Description |
 |------|-------------|
 | `token_stats` | Aggregate token statistics by chain, trending vs new |
-| `get_defi_protocols` / `search_defi` | DeFi protocols by TVL from DeFi Llama |
+| `search_defi` | DeFi protocols by TVL |
 | `get_defi_movers` | Top moving DeFi protocols by TVL change (24h) |
 | `get_chain_tvls` / `get_chain_metrics` / `get_chain_tvl_history` | Chain-level TVL, fees, DEX volume, stablecoin data, time series |
 | `get_yield_pools` | Top yield pools by APY and TVL |
@@ -258,12 +258,11 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 | **Reddit** | 30 min | Posts from user feeds, multi-account support with cookies |
 | **GitHub** | 12 hrs | Daily + weekly trending repos (stars, forks, language) |
 | **Product Hunt** | 10 min | Daily products (votes, topics, makers), multi-account |
-| **arXiv** | 60 min | Papers across categories (cs.AI, cs.LG, cs.CL, cs.CV, stat.ML) |
 | **News** | 15-120 min | CryptoPanic, Cointelegraph, Reuters, Investing.com (articles + economic calendar) |
 | **X/Twitter** | varies | Timeline, bookmarks, auto-like, auto-follow via Playwright + GraphQL interception |
 | **App Store** | 60 min | Top Free/Paid rankings + reviews for top 10 apps |
 | **Play Store** | 60 min | Top Free rankings + reviews with full descriptions via gplay |
-| **DeFi Llama** | 30 min | 18 endpoints — protocols, chains, DEX volumes, yields, bridges, hacks, stablecoins, treasuries (filters >$100K TVL) |
+
 | **Markets** | real-time | Crypto derivatives via Binance WebSocket (prices, liquidations, open interest, technical indicators) |
 
 ### Scraper features
@@ -271,7 +270,7 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 - **Browser automation** — X/Twitter and News use Playwright for JavaScript-heavy sites
 - **Anti-detection** — Stealth scripts, cookie auth, GraphQL API interception for X/Twitter
 - **Multi-account** — Reddit, Product Hunt support multiple accounts with separate cookies
-- **Selective indexing** — DeFi Llama only indexes significant movers (>5% change) or high TVL (>$10M)
+
 - **Rate limiting** — Per-source delays (App Store: 2s between calls)
 
 ### X/Twitter automation
@@ -299,7 +298,7 @@ Hybrid search engine combining vector similarity and full-text search for long-t
 
 ### Memory types
 
-17 source kinds, each with its own chunk profile and temporal decay: conversations, notes, documents, tweets, articles, products, stories, Reddit posts, GitHub repos, arXiv papers, observations, ideas, app reviews, app rankings, trends, DeFi protocols, and DEX tokens.
+Source kinds, each with its own chunk profile and temporal decay: conversations, notes, documents, tweets, articles, products, stories, Reddit posts, GitHub repos, observations, ideas, app reviews, and app rankings.
 
 ### Observation extraction
 
@@ -383,10 +382,9 @@ React SPA served via Bun HTML imports with Hono API backend. 30+ views covering 
 | **HackerNews** | Scraped stories browser |
 | **Reddit** | Reddit post browser with account management |
 | **GitHub** | Trending repos browser |
-| **arXiv** | Paper browser |
 | **News** | News article browser |
 | **App Store** | App rankings and reviews |
-| **DeFi Llama** | Protocol TVL browser |
+
 | **X/Twitter** | Timeline, bookmarks, auto-like, auto-follow management |
 | **Product Hunt** | Product browser with account management |
 

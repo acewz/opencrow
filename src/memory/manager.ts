@@ -12,9 +12,6 @@ import type {
   IdeaForIndex,
   AppReviewForIndex,
   AppRankingForIndex,
-  TrendForIndex,
-  DefiProtocolForIndex,
-  DexTokenForIndex,
   EmbeddingProvider,
   MemoryManager,
   MemoryStats,
@@ -190,45 +187,6 @@ export function createMemoryManager(config: ManagerConfig): MemoryManager {
         return await indexer.indexAppRankings(agentId, rankings, metadata);
       } catch (error) {
         log.error("Failed to index app rankings", { agentId, error });
-        throw error;
-      }
-    },
-
-    async indexTrends(
-      agentId: string,
-      trends: readonly TrendForIndex[],
-      metadata?: Record<string, string>,
-    ): Promise<string> {
-      try {
-        return await indexer.indexTrends(agentId, trends, metadata);
-      } catch (error) {
-        log.error("Failed to index trends", { agentId, error });
-        throw error;
-      }
-    },
-
-    async indexDefiProtocols(
-      agentId: string,
-      protocols: readonly DefiProtocolForIndex[],
-      metadata?: Record<string, string>,
-    ): Promise<string> {
-      try {
-        return await indexer.indexDefiProtocols(agentId, protocols, metadata);
-      } catch (error) {
-        log.error("Failed to index DeFi protocols", { agentId, error });
-        throw error;
-      }
-    },
-
-    async indexDexTokens(
-      agentId: string,
-      tokens: readonly DexTokenForIndex[],
-      metadata?: Record<string, string>,
-    ): Promise<string> {
-      try {
-        return await indexer.indexDexTokens(agentId, tokens, metadata);
-      } catch (error) {
-        log.error("Failed to index DEX tokens", { agentId, error });
         throw error;
       }
     },

@@ -108,10 +108,6 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
   get_github_repos: "github",
   search_github_repos: "github",
 
-  // arXiv
-  get_arxiv_papers: "arxiv",
-  search_arxiv_papers: "arxiv",
-
   // X / Twitter
   search_x_timeline: "x_timeline",
   get_timeline_digest: "x_timeline",
@@ -236,7 +232,6 @@ export const CATEGORY_LABELS: Record<string, string> = {
   hacker_news: "Hacker News",
   reddit: "Reddit",
   github: "GitHub",
-  arxiv: "arXiv",
   x_timeline: "X / Twitter",
   appstore: "App Store",
   playstore: "Play Store",
@@ -399,7 +394,6 @@ const CATEGORY_ORDER = [
   "hacker_news",
   "reddit",
   "github",
-  "arxiv",
   "x_timeline",
   "appstore",
   "playstore",
