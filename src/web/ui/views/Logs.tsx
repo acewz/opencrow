@@ -39,33 +39,66 @@ const LEVEL_NUM: Record<LogLevel, number> = {
   error: 3,
 };
 
+type JsonTokenType = "key" | "string" | "number" | "bool" | "plain";
+interface JsonToken { type: JsonTokenType; text: string }
+
+/** Tokenizes a single JSON line into typed segments (no HTML injection). */
+function tokenizeLine(line: string): JsonToken[] {
+  const tokens: JsonToken[] = [];
+  // Priority-ordered regex: key (quoted+colon), string value, bool/null value, number value
+  const re = /("(?:[^"\\]|\\.)*")(\s*:)|(:[ \t]*)("(?:[^"\\]|\\.)*")|(:[ \t]*)(true|false|null\b)|(:[ \t]*)(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+  let lastIndex = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = re.exec(line)) !== null) {
+    if (m.index > lastIndex) {
+      tokens.push({ type: "plain", text: line.slice(lastIndex, m.index) });
+    }
+    if (m[1] !== undefined && m[2] !== undefined) {
+      tokens.push({ type: "key", text: m[1] });
+      tokens.push({ type: "plain", text: m[2] });
+    } else if (m[3] !== undefined && m[4] !== undefined) {
+      tokens.push({ type: "plain", text: m[3] });
+      tokens.push({ type: "string", text: m[4] });
+    } else if (m[5] !== undefined && m[6] !== undefined) {
+      tokens.push({ type: "plain", text: m[5] });
+      tokens.push({ type: "bool", text: m[6] });
+    } else if (m[7] !== undefined && m[8] !== undefined) {
+      tokens.push({ type: "plain", text: m[7] });
+      tokens.push({ type: "number", text: m[8] });
+    }
+    lastIndex = re.lastIndex;
+  }
+  if (lastIndex < line.length) {
+    tokens.push({ type: "plain", text: line.slice(lastIndex) });
+  }
+  return tokens;
+}
+
+const JSON_TOKEN_CLASS: Record<JsonTokenType, string | null> = {
+  key: "lg-json-key",
+  string: "lg-json-string",
+  number: "lg-json-number",
+  bool: "lg-json-bool",
+  plain: null,
+};
+
 function highlightJson(raw: string): React.ReactNode {
-  const lines = raw.split("\n");
-  return lines.map((line, i) => {
-    const colored = line
-      .replace(
-        /("(?:[^"\\]|\\.)*")(\s*:)/g,
-        '<span class="lg-json-key">$1</span>$2',
-      )
-      .replace(
-        /:\s*("(?:[^"\\]|\\.)*")/g,
-        ': <span class="lg-json-string">$1</span>',
-      )
-      .replace(
-        /:\s*(\d+\.?\d*)/g,
-        ': <span class="lg-json-number">$1</span>',
-      )
-      .replace(
-        /:\s*(true|false|null)/g,
-        ': <span class="lg-json-bool">$1</span>',
-      );
-    return (
-      <div key={i} className="lg-data-line">
-        <span className="lg-data-linenum">{i + 1}</span>
-        <span dangerouslySetInnerHTML={{ __html: colored }} />
-      </div>
-    );
-  });
+  return raw.split("\n").map((line, i) => (
+    <div key={i} className="lg-data-line">
+      <span className="lg-data-linenum">{i + 1}</span>
+      <span>
+        {tokenizeLine(line).map((tok, j) => {
+          const cls = JSON_TOKEN_CLASS[tok.type];
+          return cls ? (
+            <span key={j} className={cls}>{tok.text}</span>
+          ) : (
+            tok.text
+          );
+        })}
+      </span>
+    </div>
+  ));
 }
 
 function LogEntryRow({
