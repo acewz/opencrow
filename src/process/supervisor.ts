@@ -84,6 +84,16 @@ export function createProcessSupervisor(
   }
 
   async function ensureSingleInstance(): Promise<void> {
+    // Skip when spawned by the orchestrator (IPC channel present).
+    // The orchestrator manages child lifecycle — killing siblings here
+    // causes a restart loop (SIGTERM → exit 0 → orchestrator respawns → repeat).
+    if (typeof process.send === "function") {
+      log.debug("Spawned by orchestrator, skipping ensureSingleInstance", {
+        process: name,
+      });
+      return;
+    }
+
     const existing = await getProcess(name);
     if (!existing || existing.pid === process.pid) return;
 

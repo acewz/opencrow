@@ -2,7 +2,7 @@ import type { Subprocess } from "bun";
 import type { OpenCrowConfig } from "../config/schema";
 import type { AgentRegistry } from "../agents/registry";
 import { resolveManifest, type ResolvedProcessSpec } from "./manifest";
-import { listProcesses, unregisterProcess } from "./registry";
+import { listProcesses } from "./registry";
 import { createLogger } from "../logger";
 
 const log = createLogger("orchestrator");
@@ -80,10 +80,6 @@ export function createOrchestrator(
     const cwd = process.cwd();
 
     log.info("Spawning child process", { name: spec.name, entry: spec.entry });
-
-    // Clear stale DB registry entry before spawning so the child's
-    // ensureSingleInstance() won't find a ghost PID to SIGTERM.
-    unregisterProcess(spec.name as any).catch(() => {});
 
     const mergedEnv: Record<string, string | undefined> = {
       ...process.env,
