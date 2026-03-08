@@ -124,7 +124,7 @@ const agentFormSchema = z.object({
   effort: z.enum(["low", "medium", "high", "max"]),
   extendedContext: z.boolean(),
   stateless: z.boolean(),
-  maxInputLength: z.coerce.number().optional(),
+  maxInputLength: z.coerce.number().int().min(0).default(0),
   systemPrompt: z.string(),
   toolMode: z.enum(["all", "allowlist", "blocklist"]),
   selectedTools: z.array(z.string()),
@@ -194,7 +194,7 @@ export function AgentFormModal({
       effort: (initial as any)?.modelParams?.effort ?? "high",
       extendedContext: (initial as any)?.modelParams?.extendedContext ?? false,
       stateless: initial?.stateless ?? false,
-      maxInputLength: initial?.maxInputLength ?? undefined,
+      maxInputLength: initial?.maxInputLength ?? 0,
       systemPrompt: initial?.systemPrompt ?? "",
       toolMode: initial?.toolFilter?.mode ?? "all",
       selectedTools: initial?.toolFilter?.tools ?? [],
@@ -565,10 +565,10 @@ export function AgentFormModal({
               </div>
               <div className="mb-5">
                 <Input
-                  label="Max Input Length"
+                  label="Max Input Length (0 = no limit)"
                   type="number"
-                  min={1}
-                  placeholder="No limit"
+                  min={0}
+                  placeholder="0"
                   {...register("maxInputLength", { valueAsNumber: true })}
                 />
               </div>
