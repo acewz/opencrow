@@ -3,6 +3,7 @@ import type { Logger as QDBLogger } from "@questdb/nodejs-client";
 import { createLogger } from "../../logger";
 
 import { getErrorMessage } from "../../lib/error-serialization";
+import { getErrorMessage } from "../../lib/error-serialization";
 const log = createLogger("market:questdb");
 
 /** Only forward errors/warnings from the QuestDB client; suppress info/debug chatter */
@@ -180,7 +181,7 @@ async function runMigrations(httpUrl: string): Promise<void> {
       log.error("QuestDB migration failed", {
         migration: name,
         index: i,
-        message: err instanceof Error ? err.message : String(err),
+        message: getErrorMessage(err),
       });
       throw err;
     }

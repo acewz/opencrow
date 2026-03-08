@@ -9,6 +9,7 @@ import {
 } from "./store";
 
 import { getErrorMessage } from "../../lib/error-serialization";
+import { getErrorMessage } from "../../lib/error-serialization";
 const log = createLogger("scholar-scraper");
 
 const TICK_INTERVAL_MS = 21_600_000; // 6 hours
@@ -176,7 +177,7 @@ async function fetchKeyword(
         }
         break;
       } catch (err) {
-        lastError = err instanceof Error ? err.message : String(err);
+        lastError = getErrorMessage(err);
         if (attempt < MAX_RETRIES - 1) {
           await sleep(Math.pow(2, attempt + 1) * 1000);
         }

@@ -15,6 +15,7 @@ import { sendCommand } from "../process/commands";
 import type { ProcessName } from "../process/types";
 import { createLogger } from "../logger";
 
+import { getErrorMessage } from "../lib/error-serialization";
 const log = createLogger("internal-api");
 
 export function createInternalApi(deps: InternalApiDeps): Hono {
@@ -633,7 +634,7 @@ export function createInternalApi(deps: InternalApiDeps): Hono {
     } catch (err) {
       return c.json(
         {
-          error: `Market process unreachable: ${err instanceof Error ? err.message : String(err)}`,
+          error: `Market process unreachable: ${getErrorMessage(err)}`,
         },
         503,
       );

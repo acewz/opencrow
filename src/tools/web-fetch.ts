@@ -3,6 +3,7 @@ import { createLogger } from "../logger";
 import { requireString, getString, getNumber, getEnum } from "./input-helpers";
 import { isToolError } from "./input-helpers";
 
+import { getErrorMessage } from "../lib/error-serialization";
 const log = createLogger("tool:web-fetch");
 
 const MAX_BODY_BYTES = 1_048_576; // 1 MB
@@ -110,7 +111,7 @@ export async function validateUrl(url: string): Promise<string | null> {
       }
     }
   } catch (err) {
-    return `DNS resolution failed for ${hostname}: ${err instanceof Error ? err.message : String(err)}`;
+    return `DNS resolution failed for ${hostname}: ${getErrorMessage(err)}`;
   }
 
   return null;
@@ -399,7 +400,7 @@ async function executeWebFetch(
       isError: false,
     };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = getErrorMessage(err);
     log.error("fetch failed", { url, error: message });
     return { output: `Fetch failed: ${message}`, isError: true };
   }
