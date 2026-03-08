@@ -242,25 +242,29 @@ export function DetailPanel({
                       </span>
                     </div>
                   )}
-                  <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
-                    <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Thinking Mode
-                    </span>
-                    <span className="text-sm text-foreground break-words capitalize">
-                      {detail.modelParams?.thinkingMode ?? (detail.reasoning ? "adaptive" : "disabled")}
-                      {detail.modelParams?.thinkingMode === "enabled" &&
-                        detail.modelParams?.thinkingBudget != null &&
-                        ` (${(detail.modelParams.thinkingBudget / 1000).toFixed(0)}k)`}
-                    </span>
-                  </div>
-                  <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
-                    <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
-                      Effort
-                    </span>
-                    <span className="text-sm text-foreground break-words capitalize">
-                      {detail.modelParams?.effort ?? "high"}
-                    </span>
-                  </div>
+                  {detail.provider === "agent-sdk" && (
+                    <>
+                      <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
+                        <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
+                          Thinking Mode
+                        </span>
+                        <span className="text-sm text-foreground break-words capitalize">
+                          {detail.modelParams?.thinkingMode ?? (detail.reasoning ? "adaptive" : "disabled")}
+                          {detail.modelParams?.thinkingMode === "enabled" &&
+                            detail.modelParams?.thinkingBudget != null &&
+                            ` (${(detail.modelParams.thinkingBudget / 1000).toFixed(0)}k)`}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
+                        <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
+                          Effort
+                        </span>
+                        <span className="text-sm text-foreground break-words capitalize">
+                          {detail.modelParams?.effort ?? "high"}
+                        </span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex flex-col gap-1 px-3 py-2.5 bg-bg-2 border border-border rounded-lg">
                     <span className="font-heading text-[0.65rem] font-semibold uppercase tracking-widest text-faint">
                       Stateless

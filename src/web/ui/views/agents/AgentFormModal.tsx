@@ -570,73 +570,76 @@ export function AgentFormModal({
                   {...register("maxInputLength", { valueAsNumber: true })}
                 />
               </div>
-              <div className="flex items-center mb-5">
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 accent-accent cursor-pointer"
-                    {...register("reasoning")}
-                  />
-                  <span className="select-none">Extended Thinking</span>
-                </label>
-              </div>
-
-              {/* -- Thinking & Effort Controls -- */}
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Thinking Mode
-                </label>
-                <Controller
-                  control={control}
-                  name="thinkingMode"
-                  render={({ field }) => (
-                    <select className={selectCls} {...field}>
-                      <option value="adaptive">Adaptive (model decides)</option>
-                      <option value="enabled">Fixed budget</option>
-                      <option value="disabled">Disabled</option>
-                    </select>
+              {/* -- Agent SDK-specific: Thinking & Effort Controls -- */}
+              {provider === "agent-sdk" && (
+                <>
+                  <div className="flex items-center mb-5">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-accent cursor-pointer"
+                        {...register("reasoning")}
+                      />
+                      <span className="select-none">Extended Thinking</span>
+                    </label>
+                  </div>
+                  <div className="mb-5">
+                    <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
+                      Thinking Mode
+                    </label>
+                    <Controller
+                      control={control}
+                      name="thinkingMode"
+                      render={({ field }) => (
+                        <select className={selectCls} {...field}>
+                          <option value="adaptive">Adaptive (model decides)</option>
+                          <option value="enabled">Fixed budget</option>
+                          <option value="disabled">Disabled</option>
+                        </select>
+                      )}
+                    />
+                  </div>
+                  {thinkingMode === "enabled" && (
+                    <div className="mb-5">
+                      <Input
+                        label="Thinking Budget (tokens)"
+                        type="number"
+                        min={1024}
+                        max={128000}
+                        step={1024}
+                        {...register("thinkingBudget", { valueAsNumber: true })}
+                      />
+                    </div>
                   )}
-                />
-              </div>
-              {thinkingMode === "enabled" && (
-                <div className="mb-5">
-                  <Input
-                    label="Thinking Budget (tokens)"
-                    type="number"
-                    min={1024}
-                    max={128000}
-                    step={1024}
-                    {...register("thinkingBudget", { valueAsNumber: true })}
-                  />
-                </div>
+                  <div className="mb-5">
+                    <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
+                      Effort Level
+                    </label>
+                    <Controller
+                      control={control}
+                      name="effort"
+                      render={({ field }) => (
+                        <select className={selectCls} {...field}>
+                          <option value="low">Low (fast, minimal thinking)</option>
+                          <option value="medium">Medium</option>
+                          <option value="high">High (deep reasoning)</option>
+                          <option value="max">Max (Opus only)</option>
+                        </select>
+                      )}
+                    />
+                  </div>
+                  <div className="flex items-center mb-5">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 accent-accent cursor-pointer"
+                        {...register("extendedContext")}
+                      />
+                      <span className="select-none">1M Context Window (beta)</span>
+                    </label>
+                  </div>
+                </>
               )}
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Effort Level
-                </label>
-                <Controller
-                  control={control}
-                  name="effort"
-                  render={({ field }) => (
-                    <select className={selectCls} {...field}>
-                      <option value="low">Low (fast, minimal thinking)</option>
-                      <option value="medium">Medium</option>
-                      <option value="high">High (deep reasoning)</option>
-                      <option value="max">Max (Opus only)</option>
-                    </select>
-                  )}
-                />
-              </div>
-              <div className="flex items-center mb-5">
-                <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 accent-accent cursor-pointer"
-                    {...register("extendedContext")}
-                  />
-                  <span className="select-none">1M Context Window (beta)</span>
-                </label>
-              </div>
               <div className="flex items-center mb-5">
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
                   <input
