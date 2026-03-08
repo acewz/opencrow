@@ -67,13 +67,12 @@ jobs:
           bun test src/tools/manage-agent.test.ts --timeout 30000
           bun test src/tools/cron.test.ts --timeout 30000
           bun test src/tools/cross-agent-memory.test.ts --timeout 30000
-          bun test src/tools/send-message.test.ts --timeout 30000
           bun test src/monitor/runner.test.ts --timeout 30000
 
       - name: Run unit tests
         run: |
           # Exclude mock.module tests (ran above) and integration tests (need DB)
-          ISOLATED="git-operations|spawn-agent|manage-agent|cron\.test|cross-agent-memory|send-message|monitor/runner"
+          ISOLATED="git-operations|spawn-agent|manage-agent|cron\.test|cross-agent-memory|monitor/runner"
           INTEGRATION="db-query|shell-runner|config/loader|agent/hooks|cron/store|store/token-usage|store/observations"
           find src -name '*.test.ts' \
             | grep -vE "$ISOLATED" \
