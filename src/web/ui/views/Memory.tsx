@@ -73,7 +73,6 @@ const KIND_COLORS: Record<string, string> = {
   tweet: "bg-[#1da1f2]/10 text-[#1da1f2]",
   reddit_post: "bg-[#ff4500]/10 text-[#ff4500]",
   github_repo: "bg-[#6e5494]/10 text-[#6e5494]",
-  arxiv_paper: "bg-[#b31b1b]/10 text-[#b31b1b]",
   product: "bg-[#da552f]/10 text-[#da552f]",
 };
 

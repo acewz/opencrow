@@ -24,7 +24,6 @@ import {
   Brain,
   AlertTriangle,
   Smartphone,
-  BookOpen,
 } from "lucide-react";
 
 export type Tab =
@@ -38,7 +37,6 @@ export type Tab =
   | "hackernews"
   | "reddit"
   | "github"
-  | "arxiv"
   | "appstore"
   | "playstore"
   | "news"
@@ -70,7 +68,7 @@ export interface NavSection {
 export const VALID_TABS = new Set<Tab>([
   "overview", "agents", "skills", "sessions", "channels",
   "x-accounts", "producthunt", "hackernews", "reddit",
-  "github", "arxiv", "appstore", "playstore",
+  "github", "appstore", "playstore",
   "news", "markets", "ideas", "cron",
   "processes", "system", "tools", "usage", "agent-metrics", "routing",
   "memory", "failures", "logs",
@@ -104,7 +102,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       { id: "hackernews", label: "Hacker News", Icon: Flame },
       { id: "reddit", label: "Reddit", Icon: MessageCircle },
       { id: "github", label: "GitHub", Icon: Github },
-      { id: "arxiv", label: "arXiv", Icon: BookOpen },
       { id: "appstore", label: "App Store", Icon: Smartphone },
       { id: "playstore", label: "Play Store", Icon: Smartphone },
     ],
