@@ -70,7 +70,7 @@ export default function Sidebar({
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 py-2.5 px-2.5 overflow-y-auto">
+        <nav className="flex-1 py-2.5 px-2.5 overflow-y-auto" aria-label="Main navigation">
           {NAV_SECTIONS.map((section) => (
             <SidebarSection
               key={section.title}
@@ -87,6 +87,7 @@ export default function Sidebar({
             className="flex items-center gap-2.5 w-full px-3 py-2.5 border-none rounded-md bg-transparent text-muted font-sans text-sm cursor-pointer text-left transition-colors duration-150 hover:text-foreground hover:bg-bg-2 max-lg:justify-center max-lg:p-2 max-lg:gap-0 max-md:justify-start max-md:px-3 max-md:py-2.5 max-md:gap-2.5"
             onClick={onThemeToggle}
             title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
           >
             {isDark ? (
               <Sun size={16} className="shrink-0" />

@@ -40,6 +40,9 @@ export default function IndicatorToggles({
           open && "bg-bg-3 text-accent border-accent",
         )}
         onClick={() => setOpen((prev) => !prev)}
+        aria-label="Toggle chart indicators"
+        aria-expanded={open}
+        aria-haspopup="true"
       >
         <svg
           width="16"

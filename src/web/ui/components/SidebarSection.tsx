@@ -24,6 +24,10 @@ export default function SidebarSection({
           section.collapsible && "cursor-pointer hover:text-muted transition-colors",
         )}
         onClick={section.collapsible ? () => setCollapsed((c) => !c) : undefined}
+        role={section.collapsible ? "button" : undefined}
+        tabIndex={section.collapsible ? 0 : undefined}
+        aria-expanded={section.collapsible ? !collapsed : undefined}
+        onKeyDown={section.collapsible ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCollapsed((c) => !c); } } : undefined}
       >
         <span className="text-[11px] font-semibold uppercase tracking-[0.1em] text-faint">
           {section.title}
@@ -57,6 +61,8 @@ export default function SidebarSection({
                 )}
                 onClick={() => onSelect(item.id)}
                 title={item.label}
+                aria-label={item.label}
+                aria-current={active ? "page" : undefined}
               >
                 <Icon size={16} className={cn(
                   "shrink-0 transition-colors duration-150",
