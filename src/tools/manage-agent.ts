@@ -63,7 +63,7 @@ export function createManageAgentTool(
         },
         model: {
           type: "string",
-          description: "Model to use (e.g. claude-sonnet-4-20250514).",
+          description: "Model to use (e.g. claude-sonnet-4-6).",
         },
         provider: {
           type: "string",

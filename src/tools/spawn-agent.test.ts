@@ -28,7 +28,7 @@ function makeAgent(overrides: Partial<ResolvedAgent> = {}): ResolvedAgent {
     description: "A test agent",
     default: false,
     provider: "agent-sdk",
-    model: "claude-sonnet-4-20250514",
+    model: "claude-sonnet-4-6",
     systemPrompt: "You are a test agent.",
     toolFilter: { mode: "all", tools: [] },
     subagents: { allowAgents: ["worker"], maxChildren: 5 },

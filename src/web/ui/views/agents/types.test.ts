@@ -45,7 +45,7 @@ test("shortModel returns 'Default' for empty string", () => {
 });
 
 test("shortModel returns last segment of slash-separated model", () => {
-  expect(shortModel("anthropic/claude-sonnet-4-20250514")).toBe("claude-sonnet-4-20250514");
+  expect(shortModel("anthropic/claude-sonnet-4-6")).toBe("claude-sonnet-4-6");
 });
 
 test("shortModel returns full name for non-slashed model", () => {
@@ -60,7 +60,7 @@ test("shortModel truncates names longer than 28 chars", () => {
 });
 
 test("shortModel does not truncate names at 28 chars or shorter", () => {
-  const model = "anthropic/claude-sonnet-4-20250514";
+  const model = "anthropic/claude-sonnet-4-6";
   const result = shortModel(model);
   expect(result).not.toContain("...");
 });

@@ -30,7 +30,7 @@ const mockGetMergedAgentsWithSource = mock(() =>
       id: "default",
       name: "Default Agent",
       description: "The default agent",
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       provider: "agent-sdk",
       default: true,
       _source: "file",
@@ -39,7 +39,7 @@ const mockGetMergedAgentsWithSource = mock(() =>
       id: "researcher",
       name: "Research Agent",
       description: "Research specialist",
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       provider: "agent-sdk",
       default: false,
       _source: "db",
@@ -184,7 +184,7 @@ describe("manage_agent tool", () => {
         name: "New Agent",
         description: "A new agent",
         system_prompt: "You are helpful",
-        model: "claude-sonnet-4-20250514",
+        model: "claude-sonnet-4-6",
         provider: "agent-sdk",
       });
       expect(result.isError).toBe(false);

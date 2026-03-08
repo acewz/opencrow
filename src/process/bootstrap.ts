@@ -363,13 +363,11 @@ export async function bootstrap(
     }
 
     {
-      const memoryTools = createMemoryTools(agent.id).filter((t) =>
-        allowsTool(t.name),
-      );
+      const memoryTools = createMemoryTools(agent.id);
       if (memoryTools.length > 0) registry = registry.withTools(memoryTools);
 
       const extraTools: ToolDefinition[] = [];
-      if (memoryManager && allowsTool("search_memory"))
+      if (memoryManager)
         extraTools.push(createSearchMemoryTool(agent.id, memoryManager));
       if (extraTools.length > 0) registry = registry.withTools(extraTools);
     }

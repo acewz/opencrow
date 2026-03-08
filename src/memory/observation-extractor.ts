@@ -96,7 +96,7 @@ Return the JSON array:`;
     for await (const message of query({
       prompt,
       options: {
-        model: "claude-haiku-4-5-20251001",
+        model: "claude-haiku-4-5",
         systemPrompt: "You extract structured observations from conversations. Return only valid JSON.",
         maxTurns: 1,
         permissionMode: "bypassPermissions",

@@ -223,14 +223,14 @@ export const memorySearchConfigSchema = z.object({
 
 export const observationsConfigSchema = z
   .object({
-    model: z.string().default("claude-haiku-4-5-20251001"),
+    model: z.string().default("claude-haiku-4-5"),
     minMessages: z.number().int().min(2).default(4),
     maxPerConversation: z.number().int().min(1).default(3),
     maxRecentInPrompt: z.number().int().min(0).default(10),
     debounceSec: z.number().int().min(0).default(300),
   })
   .default({
-    model: "claude-haiku-4-5-20251001",
+    model: "claude-haiku-4-5",
     minMessages: 4,
     maxPerConversation: 3,
     maxRecentInPrompt: 10,

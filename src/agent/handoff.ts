@@ -8,7 +8,7 @@ import {
 
 const log = createLogger("agent:handoff");
 
-const HANDOFF_MODEL = "claude-sonnet-4-20250514";
+const HANDOFF_MODEL = "claude-sonnet-4-6";
 const MAX_HISTORY_MESSAGES = 30;
 
 const SUMMARIZER_PROMPT = `You are summarizing a conversation for an agent handoff. The user is switching from one AI agent to another mid-conversation. Produce a concise structured summary so the new agent can pick up seamlessly.
