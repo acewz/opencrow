@@ -232,7 +232,6 @@ export function createGateway(config: OpenCrowConfig): Gateway {
         githubScraper: instances.githubScraper,
         arxivScraper: instances.arxivScraper,
         newsProcessor: instances.newsProcessor,
-        dexScreenerProcessor: instances.dexScreenerProcessor,
         observationHook: observationHook ?? undefined,
       });
 

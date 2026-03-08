@@ -31,7 +31,7 @@ Web search (`WebSearch`) is a **last resort** — only use it when:
 | Hacker News | `"hacker news"` |
 | Reddit | `"reddit digest"` |
 | GitHub repos | `"github trending"` |
-| arXiv & Scholar papers | `"arxiv scholar papers"` |
+| arXiv papers | `"arxiv papers"` |
 | HuggingFace models | `"huggingface models"` |
 | Google Trends | `"google trends"` |
 | Product Hunt | `"product hunt"` |

@@ -41,7 +41,6 @@ function mockMemoryManager(
     indexHFModels: async () => "ok",
     indexGithubRepos: async () => "ok",
     indexArxivPapers: async () => "ok",
-    indexScholarPapers: async () => "ok",
     indexObservations: async () => "ok",
     indexIdea: async () => "ok",
     indexAppReviews: async () => "ok",

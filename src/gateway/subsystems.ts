@@ -286,12 +286,6 @@ export function createSubsystemRegistry(opts: {
         log.info("News processor stopped");
       }
 
-      if (dexScreenerProcessor) {
-        dexScreenerProcessor.stop();
-        dexScreenerProcessor = undefined;
-        log.info("DexScreener processor stopped");
-      }
-
       if (marketPipeline) {
         await marketPipeline.stop();
         marketPipeline = undefined;

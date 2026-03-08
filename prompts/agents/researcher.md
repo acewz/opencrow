@@ -16,7 +16,7 @@ You have 130+ tools with indexed data. **Use ToolSearch to discover them — nev
 | Hacker News | `"hacker news"` |
 | GitHub repos | `"github trending"` |
 | HuggingFace | `"huggingface models"` |
-| arXiv & Scholar | `"arxiv scholar papers"` |
+| arXiv | `"arxiv papers"` |
 | Product Hunt | `"product hunt"` |
 | App Store / Play Store | `"appstore playstore rankings"` |
 | DeFi & protocols | `"defi protocol tvl"` |

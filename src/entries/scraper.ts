@@ -156,24 +156,6 @@ async function main(): Promise<void> {
       scraper.start();
       break;
     }
-    case "defillama": {
-      const { createDefiLlamaScraper } =
-        await import("../sources/defillama/scraper");
-      const scraper = createDefiLlamaScraper({
-        memoryManager: memoryManager ?? undefined,
-      });
-      scraper.start();
-      break;
-    }
-    case "dexscreener": {
-      const { createDexScreenerProcessor } =
-        await import("../sources/dexscreener/processor");
-      const processor = createDexScreenerProcessor({
-        memoryManager: memoryManager ?? undefined,
-      });
-      processor.start();
-      break;
-    }
     default:
       log.error("Unknown scraper ID", { scraperId });
       process.exit(1);

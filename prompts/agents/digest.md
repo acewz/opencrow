@@ -21,7 +21,6 @@ Use `ToolSearch` to discover digest/search tools for each source, then call them
 | GitHub | `"github trending"` |
 | HuggingFace | `"huggingface models"` |
 | News | `"news digest"` |
-| Scholar | `"scholar papers"` |
 | X/Twitter | `"twitter timeline"` |
 | Cross-source | `"cross source search"` |
 

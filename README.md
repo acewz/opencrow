@@ -168,7 +168,6 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 | `get_reddit_digest` / `search_reddit` | Reddit posts with subreddit filtering |
 | `get_github_repos` / `search_github_repos` | Trending GitHub repos with language filters |
 | `get_arxiv_papers` / `search_arxiv_papers` | arXiv preprints by category (cs.AI, cs.LG, etc.) |
-| `get_scholar_papers` / `search_scholar_papers` / `lookup_scholar_paper` | Semantic Scholar papers with citations and TLDR |
 | `get_product_digest` / `search_products` | Product Hunt products and launches |
 | `get_timeline_digest` / `search_x_timeline` | X/Twitter timeline and semantic search |
 | `get_liked_tweets` / `get_x_analytics` | X/Twitter liked tweets and engagement analytics |
@@ -265,7 +264,6 @@ Every tool is a `ToolDefinition` with name, JSON Schema, and execute function. T
 | **Product Hunt** | 10 min | Daily products (votes, topics, makers), multi-account |
 | **arXiv** | 60 min | Papers across categories (cs.AI, cs.LG, cs.CL, cs.CV, stat.ML) |
 | **HuggingFace** | 30 min | Trending, most-liked, recently-modified ML models |
-| **Scholar** | 6 hrs | Academic papers via Semantic Scholar API (citations, TLDR) |
 | **News** | 15-120 min | CryptoPanic, Cointelegraph, Reuters, Investing.com (articles + economic calendar) |
 | **X/Twitter** | varies | Timeline, bookmarks, auto-like, auto-follow via Playwright + GraphQL interception |
 | **Google Trends** | 30 min | Trending topics (US) with traffic volume and related queries |
@@ -308,7 +306,7 @@ Hybrid search engine combining vector similarity and full-text search for long-t
 
 ### Memory types
 
-19 source kinds, each with its own chunk profile and temporal decay: conversations, notes, documents, tweets, articles, products, stories, Reddit posts, HuggingFace models, GitHub repos, arXiv papers, Scholar papers, observations, ideas, app reviews, app rankings, trends, DeFi protocols, and DEX tokens.
+18 source kinds, each with its own chunk profile and temporal decay: conversations, notes, documents, tweets, articles, products, stories, Reddit posts, HuggingFace models, GitHub repos, arXiv papers, observations, ideas, app reviews, app rankings, trends, DeFi protocols, and DEX tokens.
 
 ### Observation extraction
 
@@ -393,7 +391,6 @@ React SPA served via Bun HTML imports with Hono API backend. 30+ views covering 
 | **Reddit** | Reddit post browser with account management |
 | **GitHub** | Trending repos browser |
 | **arXiv** | Paper browser |
-| **Scholar** | Academic paper browser |
 | **HuggingFace** | ML model browser |
 | **News** | News article browser |
 | **Google Trends** | Trending topics browser |

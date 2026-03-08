@@ -27,7 +27,6 @@ import {
   AlertTriangle,
   Search,
   Smartphone,
-  Wallet,
 } from "lucide-react";
 
 export type Tab =
@@ -46,7 +45,6 @@ export type Tab =
   | "google-trends"
   | "appstore"
   | "playstore"
-  | "defillama"
   | "news"
   | "markets"
   | "ideas"
@@ -77,7 +75,7 @@ export const VALID_TABS = new Set<Tab>([
   "overview", "agents", "skills", "sessions", "channels",
   "x-accounts", "producthunt", "hackernews", "reddit", "huggingface",
   "github", "arxiv", "google-trends", "appstore", "playstore",
-  "defillama", "news", "markets", "ideas", "cron",
+  "news", "markets", "ideas", "cron",
   "processes", "system", "tools", "usage", "agent-metrics", "routing",
   "memory", "failures", "logs",
 ]);
@@ -115,7 +113,6 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       { id: "google-trends", label: "Google Trends", Icon: Search },
       { id: "appstore", label: "App Store", Icon: Smartphone },
       { id: "playstore", label: "Play Store", Icon: Smartphone },
-      { id: "defillama", label: "DeFi Llama", Icon: Wallet },
     ],
   },
   {

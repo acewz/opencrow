@@ -43,7 +43,6 @@ import Failures from "./views/Failures";
 import GoogleTrends from "./views/GoogleTrends";
 import AppStore from "./views/AppStore";
 import PlayStore from "./views/PlayStore";
-import DefiLlama from "./views/DefiLlama";
 
 interface StatusResponse {
   uptime: number;
@@ -257,7 +256,6 @@ function App() {
             {tab === "google-trends" && <GoogleTrends />}
             {tab === "appstore" && <AppStore />}
             {tab === "playstore" && <PlayStore />}
-            {tab === "defillama" && <DefiLlama />}
             {tab === "news" && <News />}
             {tab === "ideas" && <Ideas />}
             {tab === "memory" && <Memory />}

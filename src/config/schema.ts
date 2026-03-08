@@ -277,8 +277,6 @@ export const scraperProcessesConfigSchema = z
         "google-trends",
         "appstore",
         "playstore",
-        "defillama",
-        "dexscreener",
       ]),
   })
   .default({
@@ -300,7 +298,6 @@ export const scraperProcessesConfigSchema = z
       "appstore",
       "playstore",
       "defillama",
-      "dexscreener",
     ],
   });
 
@@ -334,8 +331,6 @@ export const processesConfigSchema = z
         "google-trends",
         "appstore",
         "playstore",
-        "defillama",
-        "dexscreener",
       ],
     },
   });

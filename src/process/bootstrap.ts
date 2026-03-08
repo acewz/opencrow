@@ -54,7 +54,6 @@ import { createXTimelineTools } from "../tools/x-timeline";
 import { createAppStoreTools } from "../tools/appstore";
 import { createPlayStoreTools } from "../tools/playstore";
 import { createCrossSourceSearchTool } from "../tools/cross-search";
-import { createDefiLlamaTools } from "../tools/defillama";
 import { createGoogleTrendsTools } from "../tools/google-trends";
 import { createGetScraperStatusTool } from "../tools/scraper-status";
 import { createGetSubagentRunsTool } from "../tools/subagent-runs";
@@ -380,13 +379,6 @@ export async function bootstrap(
     }
 
     {
-      const dexScreenerTools = createDexScreenerTools().filter((t) =>
-        allowsTool(t.name),
-      );
-      if (dexScreenerTools.length > 0) registry = registry.withTools(dexScreenerTools);
-    }
-
-    {
       const phTools = createPHTools(memoryManager).filter((t) =>
         allowsTool(t.name),
       );
@@ -446,10 +438,6 @@ export async function bootstrap(
       if (playStoreTools.length > 0) registry = registry.withTools(playStoreTools);
     }
 
-    {
-      const defiTools = createDefiLlamaTools(memoryManager).filter((t) => allowsTool(t.name));
-      if (defiTools.length > 0) registry = registry.withTools(defiTools);
-    }
 
     {
       const trendsTools = createGoogleTrendsTools(memoryManager).filter((t) => allowsTool(t.name));

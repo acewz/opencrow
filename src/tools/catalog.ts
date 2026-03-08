@@ -19,7 +19,6 @@ import { createXTimelineTools } from "./x-timeline";
 import { createAppStoreTools } from "./appstore";
 import { createPlayStoreTools } from "./playstore";
 import { createCrossSourceSearchTool } from "./cross-search";
-import { createDefiLlamaTools } from "./defillama";
 import { createGoogleTrendsTools } from "./google-trends";
 import { createIdeaTools } from "./ideas";
 import { createSignalTools } from "./signals";
@@ -143,23 +142,6 @@ const TOOL_CATEGORY_OVERRIDES: Record<string, string> = {
   // Cross-source
   cross_source_search: "search",
 
-  // DeFi
-  get_defi_protocols: "defi",
-  get_defi_movers: "defi",
-  get_chain_tvls: "defi",
-  get_chain_metrics: "defi",
-  get_chain_tvl_history: "defi",
-  search_defi: "defi",
-  get_yield_pools: "defi",
-  get_bridges: "defi",
-  get_defi_hacks: "defi",
-  get_emissions: "defi",
-  get_defi_categories: "defi",
-  get_stablecoins: "defi",
-  get_treasury: "defi",
-  get_protocol_detail: "defi",
-  get_global_defi_metrics: "defi",
-
   // Market
   get_price: "market",
   market_summary: "market",
@@ -272,7 +254,6 @@ export const CATEGORY_LABELS: Record<string, string> = {
   playstore: "Play Store",
   google_trends: "Google Trends",
   search: "Cross-Source",
-  defi: "DeFi",
   market: "Markets & Trading",
   ideas: "Ideas",
   signals: "Signals",
@@ -366,7 +347,6 @@ export function buildToolCatalog(): readonly ToolCatalogEntry[] {
   tools.push(...createAppStoreTools(mm));
   tools.push(...createPlayStoreTools(mm));
   tools.push(createCrossSourceSearchTool(mm));
-  tools.push(...createDefiLlamaTools(mm));
   tools.push(...createGoogleTrendsTools(mm));
 
   // Market tools
@@ -442,7 +422,6 @@ const CATEGORY_ORDER = [
   "playstore",
   "google_trends",
   "search",
-  "defi",
   "market",
   "ideas",
   "signals",

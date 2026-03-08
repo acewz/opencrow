@@ -33,7 +33,6 @@ import { createFailureRoutes } from "./routes/failures";
 import { createGoogleTrendsRoutes } from "./routes/google-trends";
 import { createAppStoreRoutes } from "./routes/appstore";
 import { createPlayStoreRoutes } from "./routes/playstore";
-import { createDefiLlamaRoutes } from "./routes/defillama";
 import type { BookmarkProcessor } from "../sources/x/bookmarks/processor";
 import type { AutolikeProcessor } from "../sources/x/interactions/processor";
 import type { AutofollowProcessor } from "../sources/x/follow/processor";
@@ -346,8 +345,6 @@ export function createWebApp(deps: WebAppDeps): Hono {
   const playStore = createPlayStoreRoutes({ coreClient: cc });
   app.route("/api", playStore);
 
-  const defiLlama = createDefiLlamaRoutes();
-  app.route("/api", defiLlama);
 
 
   const skills = createSkillRoutes();
