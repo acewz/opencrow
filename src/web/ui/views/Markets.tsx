@@ -5,6 +5,8 @@ import {
   OVERLAY_INDICATORS,
   OSCILLATOR_GROUPS,
   TIMEFRAME_HOURS,
+  SYMBOLS,
+  TIMEFRAMES,
 } from "./market/types";
 import MarketHeader from "./market/MarketHeader";
 import CandlestickChart from "./market/CandlestickChart";
@@ -51,9 +53,18 @@ function useMediaQuery(query: string): boolean {
 }
 
 export default function Markets() {
-  const [symbol, setSymbol] = useState("BTC/USDT");
-  const [timeframe, setTimeframe] = useState<TimeFrame>("1h");
-  const [marketType, setMarketType] = useState<MarketType>("futures");
+  const [symbol, setSymbol] = useState<string>(() => {
+    const stored = localStorage.getItem("markets:symbol");
+    return stored && (SYMBOLS as readonly string[]).includes(stored) ? stored : "BTC/USDT";
+  });
+  const [timeframe, setTimeframe] = useState<TimeFrame>(() => {
+    const stored = localStorage.getItem("markets:timeframe") as TimeFrame | null;
+    return stored && TIMEFRAMES.includes(stored) ? stored : "1h";
+  });
+  const [marketType, setMarketType] = useState<MarketType>(() => {
+    const stored = localStorage.getItem("markets:marketType");
+    return stored === "spot" || stored === "futures" ? stored : "futures";
+  });
   const [enabledOverlays, setEnabledOverlays] = useState<Set<string>>(() =>
     buildDefaultSet(OVERLAY_INDICATORS),
   );
@@ -63,6 +74,10 @@ export default function Markets() {
   const [hoursMultiplier, setHoursMultiplier] = useState(1);
 
   const isDesktop = useMediaQuery("(min-width: 1024px)");
+
+  useEffect(() => { localStorage.setItem("markets:symbol", symbol); }, [symbol]);
+  useEffect(() => { localStorage.setItem("markets:timeframe", timeframe); }, [timeframe]);
+  useEffect(() => { localStorage.setItem("markets:marketType", marketType); }, [marketType]);
 
   useEffect(() => {
     setHoursMultiplier(1);
