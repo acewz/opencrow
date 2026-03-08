@@ -256,6 +256,32 @@ export default function Markets() {
     setHoursMultiplier(1);
   }, [symbol, timeframe, marketType]);
 
+  // Keyboard navigation: ← / → to cycle timeframes, Escape to close alert panel
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      // Don't fire when typing in an input
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+
+      if (e.key === "Escape") {
+        setAlertsOpen(false);
+        return;
+      }
+
+      if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+        e.preventDefault();
+        const idx = TIMEFRAMES.indexOf(timeframe);
+        if (e.key === "ArrowLeft" && idx > 0) {
+          setTimeframe(TIMEFRAMES[idx - 1]!);
+        } else if (e.key === "ArrowRight" && idx < TIMEFRAMES.length - 1) {
+          setTimeframe(TIMEFRAMES[idx + 1]!);
+        }
+      }
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [timeframe]);
+
   const baseHours = TIMEFRAME_HOURS[timeframe];
   const hours = baseHours * hoursMultiplier;
   const isFutures = marketType === "futures";

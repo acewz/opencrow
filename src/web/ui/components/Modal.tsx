@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 
 interface ModalProps {
@@ -9,7 +9,51 @@ interface ModalProps {
   readonly width?: string;
 }
 
+const FOCUSABLE =
+  'button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],[tabindex]:not([tabindex="-1"])';
+
 export function Modal({ open, onClose, title, children, width }: ModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+
+    // Focus first focusable element when modal opens
+    const el = dialogRef.current;
+    if (el) {
+      const first = el.querySelectorAll<HTMLElement>(FOCUSABLE)[0];
+      first?.focus();
+    }
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (e.key === "Tab" && dialogRef.current) {
+        const focusable = Array.from(
+          dialogRef.current.querySelectorAll<HTMLElement>(FOCUSABLE),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0]!;
+        const last = focusable[focusable.length - 1]!;
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open, onClose]);
+
   if (!open) return null;
 
   return (
@@ -19,6 +63,7 @@ export function Modal({ open, onClose, title, children, width }: ModalProps) {
       style={{ animation: "agFadeIn 0.15s ease-out" }}
     >
       <div
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
