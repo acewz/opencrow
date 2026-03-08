@@ -14,6 +14,16 @@ import type {
 } from "./types";
 import { TIMEFRAME_HOURS } from "./types";
 
+/** Polling intervals in milliseconds, grouped by data volatility. */
+const POLLING_INTERVALS = {
+  /** High-frequency data: liquidations, live ticks */
+  HIGH: 10_000,
+  /** Medium-frequency data: summaries, candles, pipeline status */
+  MEDIUM: 15_000,
+  /** Low-frequency data: metrics history, funding, indicator matrix */
+  LOW: 30_000,
+} as const;
+
 function usePolling<T>(
   fetcher: () => Promise<T>,
   intervalMs: number,
@@ -76,7 +86,7 @@ export function useSummaries(): {
       apiFetch<{ data: readonly MarketSummary[] }>("/api/market/summary").then(
         (r) => r.data,
       ),
-    15_000,
+    POLLING_INTERVALS.MEDIUM,
     [],
   );
 }
@@ -95,7 +105,7 @@ export function useMetricsHistory(
       apiFetch<{ data: readonly FuturesMetrics[] }>(
         `/api/market/metrics/${encodeURIComponent(symbol)}/history?hours=${hours}&limit=500`,
       ).then((r) => r.data),
-    30_000,
+    POLLING_INTERVALS.LOW,
     [symbol, hours],
     enabled,
   );
@@ -111,7 +121,7 @@ export function useFunding(
       apiFetch<{ data: FundingData }>(
         `/api/market/funding/${encodeURIComponent(symbol)}?hours=${hours}`,
       ).then((r) => r.data),
-    30_000,
+    POLLING_INTERVALS.LOW,
     [symbol, hours],
     enabled,
   );
@@ -130,7 +140,7 @@ export function useLiquidations(
       apiFetch<{ data: LiquidationData }>(
         `/api/market/liquidations?symbol=${encodeURIComponent(symbol)}&limit=50`,
       ).then((r) => r.data),
-    10_000,
+    POLLING_INTERVALS.HIGH,
     [symbol],
     enabled,
   );
@@ -150,7 +160,7 @@ export function useLiquidationBuckets(
       apiFetch<{ data: readonly LiquidationBucket[] }>(
         `/api/market/liquidations/buckets?symbol=${encodeURIComponent(symbol)}&hours=${hours}&bucket_minutes=60`,
       ).then((r) => r.data),
-    30_000,
+    POLLING_INTERVALS.LOW,
     [symbol, hours],
     enabled,
   );
@@ -166,7 +176,7 @@ export function usePipelineStatus(): {
       apiFetch<{ data: PipelineStatus }>("/api/market/status").then(
         (r) => r.data,
       ),
-    15_000,
+    POLLING_INTERVALS.MEDIUM,
     [],
   );
 }
@@ -180,7 +190,7 @@ export function useIndicatorMatrix(
       apiFetch<{ data: MatrixData }>(
         `/api/market/indicators/${encodeURIComponent(symbol)}/matrix?market_type=${marketType}`,
       ).then((r) => r.data),
-    30_000,
+    POLLING_INTERVALS.LOW,
     [symbol, marketType],
   );
 }
@@ -214,7 +224,7 @@ export function useIndicators(
       apiFetch<{ data: CandlesWithIndicators }>(
         `/api/market/candles/${encodeURIComponent(symbol)}/indicators?timeframe=${timeframe}&hours=${hours}&market_type=${marketType}&limit=${limit}`,
       ).then((r) => r.data),
-    15_000,
+    POLLING_INTERVALS.MEDIUM,
     [symbol, timeframe, marketType, hours],
   );
 }
@@ -233,7 +243,7 @@ export function useLatestMetrics(
       apiFetch<{ data: readonly FuturesMetrics[] }>(
         `/api/market/metrics/${encodeURIComponent(symbol)}/history?hours=1&limit=1`,
       ).then((r) => (r.data.length > 0 ? r.data[r.data.length - 1]! : null)),
-    30_000,
+    POLLING_INTERVALS.LOW,
     [symbol],
     enabled,
   );
@@ -249,7 +259,7 @@ export function useLatestFunding(
       apiFetch<{ data: FundingData }>(
         `/api/market/funding/${encodeURIComponent(symbol)}?hours=8`,
       ).then((r) => r.data),
-    30_000,
+    POLLING_INTERVALS.LOW,
     [symbol],
     enabled,
   );
