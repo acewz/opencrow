@@ -1,9 +1,16 @@
 import React, { useState, useCallback } from "react";
+import { z } from "zod";
 import { cn } from "../../lib/cn";
 import { apiFetch } from "../../api";
-import { Button, Input } from "../../components";
+import { Button, Input, FormField } from "../../components";
+import { useZodForm } from "../../hooks/useZodForm";
 import { CapabilitiesSection } from "./CapabilitiesSection";
 import type { XAccount, AccountResponse } from "./types";
+
+const credentialsSchema = z.object({
+  authToken: z.string().min(1, "Auth token is required"),
+  ct0: z.string().min(1, "CT0 is required"),
+});
 
 // ---------------------------------------------------------------------------
 // Credentials section
@@ -17,39 +24,37 @@ function CredentialsSection({
   readonly onSaved: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const [authToken, setAuthToken] = useState("");
-  const [ct0, setCt0] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [apiError, setApiError] = useState("");
   const [saved, setSaved] = useState(false);
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useZodForm(credentialsSchema, {
+    defaultValues: { authToken: "", ct0: "" },
+  });
 
   const redact = useCallback((raw: string) => {
     if (raw.length <= 8) return raw;
     return `${raw.slice(0, 8)}...`;
   }, []);
 
-  async function handleSave() {
-    if (!authToken.trim() || !ct0.trim()) {
-      setError("Both auth_token and ct0 are required");
-      return;
-    }
-    setSaving(true);
-    setError("");
+  async function onSubmit(values: z.infer<typeof credentialsSchema>) {
+    setApiError("");
     setSaved(false);
     try {
       await apiFetch<AccountResponse>(`/api/x/accounts/${account.id}`, {
         method: "PUT",
-        body: JSON.stringify({ auth_token: authToken.trim(), ct0: ct0.trim() }),
+        body: JSON.stringify({ auth_token: values.authToken.trim(), ct0: values.ct0.trim() }),
       });
       setSaved(true);
-      setAuthToken("");
-      setCt0("");
+      reset();
       onSaved();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
-      setError(apiErr.message ?? "Failed to update credentials");
-    } finally {
-      setSaving(false);
+      setApiError(apiErr.message ?? "Failed to update credentials");
     }
   }
 
@@ -75,7 +80,6 @@ function CredentialsSection({
 
       {expanded && (
         <div className="px-4 py-4 flex flex-col gap-4">
-          {/* Current redacted values */}
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-3">
               <span className="font-heading text-[0.68rem] font-semibold uppercase tracking-widest text-faint w-24 shrink-0">
@@ -95,14 +99,14 @@ function CredentialsSection({
             </div>
           </div>
 
-          <div className="border-t border-border pt-4 flex flex-col gap-3">
+          <form onSubmit={handleSubmit(onSubmit)} className="border-t border-border pt-4 flex flex-col gap-3">
             <div className="font-heading text-[0.68rem] font-semibold uppercase tracking-widest text-faint">
               Update Credentials
             </div>
 
-            {error && (
+            {apiError && (
               <div className="text-danger text-sm font-mono px-3 py-2 bg-danger-subtle border border-border rounded-md break-words">
-                {error}
+                {apiError}
               </div>
             )}
             {saved && (
@@ -111,48 +115,46 @@ function CredentialsSection({
               </div>
             )}
 
-            <div className="flex flex-col gap-2">
+            <FormField error={errors.authToken}>
               <label className="font-heading text-[0.68rem] font-semibold uppercase tracking-widest text-faint">
                 auth_token
               </label>
               <Input
                 type="password"
-                value={authToken}
-                onChange={(e) => setAuthToken(e.target.value)}
+                {...register("authToken")}
                 placeholder="New auth_token value"
               />
-            </div>
-            <div className="flex flex-col gap-2">
+            </FormField>
+            <FormField error={errors.ct0}>
               <label className="font-heading text-[0.68rem] font-semibold uppercase tracking-widest text-faint">
                 ct0
               </label>
               <Input
                 type="password"
-                value={ct0}
-                onChange={(e) => setCt0(e.target.value)}
+                {...register("ct0")}
                 placeholder="New ct0 value"
               />
-            </div>
+            </FormField>
 
             <div className="flex gap-3 pt-1">
-              <Button size="sm" onClick={handleSave} loading={saving}>
-                {saving ? "Saving..." : "Update Credentials"}
+              <Button type="submit" size="sm" loading={isSubmitting}>
+                {isSubmitting ? "Saving..." : "Update Credentials"}
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
+                type="button"
                 onClick={() => {
                   setExpanded(false);
-                  setAuthToken("");
-                  setCt0("");
-                  setError("");
+                  reset();
+                  setApiError("");
                   setSaved(false);
                 }}
               >
                 Cancel
               </Button>
             </div>
-          </div>
+          </form>
         </div>
       )}
     </div>

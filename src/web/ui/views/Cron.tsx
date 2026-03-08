@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { z } from "zod";
+import { Controller } from "react-hook-form";
 import { apiFetch } from "../api";
 import {
   PageHeader,
@@ -7,7 +9,9 @@ import {
   Button,
   Input,
   Toggle,
+  FormField,
 } from "../components";
+import { useZodForm } from "../hooks/useZodForm";
 
 interface CronJob {
   id: string;
@@ -65,6 +69,23 @@ interface AgentOption {
   id: string;
   name: string;
 }
+
+/* ─── Form Schema ─── */
+
+const cronJobSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  scheduleKind: z.string(),
+  at: z.string(),
+  everyMs: z.string(),
+  cronExpr: z.string(),
+  tz: z.string(),
+  message: z.string().min(1, "Message is required"),
+  agentId: z.string(),
+  deleteAfterRun: z.boolean(),
+  priority: z.string(),
+});
+
+type CronJobFormValues = z.input<typeof cronJobSchema>;
 
 /* ─── Helpers ─── */
 
@@ -444,20 +465,30 @@ export default function Cron() {
   const [activeRuns, setActiveRuns] = useState<Record<string, CronRun>>({});
   const prevActiveJobIds = useRef<Set<string>>(new Set());
 
-  const [formSaving, setFormSaving] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formScheduleKind, setFormScheduleKind] = useState<
-    "every" | "cron" | "at"
-  >("every");
-  const [formAt, setFormAt] = useState("");
-  const [formEveryMs, setFormEveryMs] = useState("3600000");
-  const [formCronExpr, setFormCronExpr] = useState("0 * * * *");
-  const [formTz, setFormTz] = useState("");
-  const [formMessage, setFormMessage] = useState("");
-  const [formAgentId, setFormAgentId] = useState("");
-  const [formDeleteAfterRun, setFormDeleteAfterRun] = useState(false);
-  const [formPriority, setFormPriority] = useState("10");
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    watch,
+    formState: { errors, isSubmitting: formSaving },
+  } = useZodForm(cronJobSchema, {
+    defaultValues: {
+      name: "",
+      scheduleKind: "every",
+      at: "",
+      everyMs: "3600000",
+      cronExpr: "0 * * * *",
+      tz: "",
+      message: "",
+      agentId: "",
+      deleteAfterRun: false,
+      priority: "10",
+    },
+  });
   const [formError, setFormError] = useState("");
+  const scheduleKind = watch("scheduleKind");
+  const everyMsValue = watch("everyMs");
 
   const loadJobs = useCallback(async () => {
     try {
@@ -555,32 +586,30 @@ export default function Cron() {
     }
   }
 
-  async function handleCreateJob(e: React.FormEvent) {
-    e.preventDefault();
+  async function onCreateJob(values: CronJobFormValues) {
     setFormError("");
-    setFormSaving(true);
 
     const schedule =
-      formScheduleKind === "at"
-        ? { kind: "at" as const, at: formAt }
-        : formScheduleKind === "every"
-          ? { kind: "every" as const, everyMs: Number(formEveryMs) }
+      values.scheduleKind === "at"
+        ? { kind: "at" as const, at: values.at }
+        : values.scheduleKind === "every"
+          ? { kind: "every" as const, everyMs: Number(values.everyMs) }
           : {
               kind: "cron" as const,
-              expr: formCronExpr,
-              tz: formTz || undefined,
+              expr: values.cronExpr,
+              tz: values.tz || undefined,
             };
 
     const body = {
-      name: formName,
+      name: values.name,
       schedule,
       payload: {
         kind: "agentTurn" as const,
-        message: formMessage,
-        agentId: formAgentId || undefined,
+        message: values.message,
+        agentId: values.agentId || undefined,
       },
-      deleteAfterRun: formDeleteAfterRun,
-      priority: Number(formPriority),
+      deleteAfterRun: values.deleteAfterRun,
+      priority: Number(values.priority),
     };
 
     try {
@@ -593,7 +622,8 @@ export default function Cron() {
       );
       if (res.success) {
         setShowForm(false);
-        resetForm();
+        reset();
+        setFormError("");
         loadJobs();
       } else {
         setFormError(
@@ -602,23 +632,7 @@ export default function Cron() {
       }
     } catch {
       setFormError("Failed to create job");
-    } finally {
-      setFormSaving(false);
     }
-  }
-
-  function resetForm() {
-    setFormName("");
-    setFormScheduleKind("every");
-    setFormAt("");
-    setFormEveryMs("3600000");
-    setFormCronExpr("0 * * * *");
-    setFormTz("");
-    setFormMessage("");
-    setFormAgentId("");
-    setFormDeleteAfterRun(false);
-    setFormPriority("10");
-    setFormError("");
   }
 
   if (loading) {
@@ -662,144 +676,145 @@ export default function Cron() {
         <div className="cr-form-card">
           <div className="cr-form-title">Create Job</div>
           {formError && <div className="cr-error">{formError}</div>}
-          <form onSubmit={handleCreateJob}>
+          <form onSubmit={handleSubmit(onCreateJob)}>
             <div className="cr-form-grid">
               <div>
-                <Input
-                  label="Name"
-                  type="text"
-                  value={formName}
-                  onChange={(e) => setFormName(e.target.value)}
-                  required
-                />
+                <FormField error={errors.name}>
+                  <Input
+                    label="Name"
+                    type="text"
+                    {...register("name")}
+                  />
+                </FormField>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                   Schedule Type
                 </label>
-                <select
-                  className={selectClass}
-                  value={formScheduleKind}
-                  onChange={(e) =>
-                    setFormScheduleKind(
-                      e.target.value as "every" | "cron" | "at",
-                    )
-                  }
-                >
-                  <option value="every">Interval</option>
-                  <option value="cron">Cron Expression</option>
-                  <option value="at">One-time</option>
-                </select>
+                <Controller
+                  control={control}
+                  name="scheduleKind"
+                  render={({ field }) => (
+                    <select className={selectClass} {...field}>
+                      <option value="every">Interval</option>
+                      <option value="cron">Cron Expression</option>
+                      <option value="at">One-time</option>
+                    </select>
+                  )}
+                />
               </div>
 
-              {formScheduleKind === "at" && (
+              {scheduleKind === "at" && (
                 <div>
                   <Input
                     label="Date/Time"
                     type="datetime-local"
-                    value={formAt}
-                    onChange={(e) => setFormAt(e.target.value)}
-                    required
+                    {...register("at")}
                   />
                 </div>
               )}
-              {formScheduleKind === "every" && (
+              {scheduleKind === "every" && (
                 <div className="cr-form-row">
                   <div className="flex-1">
                     <Input
                       label="Interval (ms)"
                       type="number"
-                      value={formEveryMs}
-                      onChange={(e) => setFormEveryMs(e.target.value)}
                       min={1000}
-                      required
+                      {...register("everyMs")}
                     />
                   </div>
                   <span className="cr-form-hint mt-5">
-                    {Number(formEveryMs) >= 3600000
-                      ? `${Math.floor(Number(formEveryMs) / 3600000)}h`
-                      : Number(formEveryMs) >= 60000
-                        ? `${Math.floor(Number(formEveryMs) / 60000)}m`
-                        : `${Math.floor(Number(formEveryMs) / 1000)}s`}
+                    {Number(everyMsValue) >= 3600000
+                      ? `${Math.floor(Number(everyMsValue) / 3600000)}h`
+                      : Number(everyMsValue) >= 60000
+                        ? `${Math.floor(Number(everyMsValue) / 60000)}m`
+                        : `${Math.floor(Number(everyMsValue) / 1000)}s`}
                   </span>
                 </div>
               )}
-              {formScheduleKind === "cron" && (
+              {scheduleKind === "cron" && (
                 <>
                   <div>
                     <Input
                       label="Cron Expression"
                       type="text"
-                      value={formCronExpr}
-                      onChange={(e) => setFormCronExpr(e.target.value)}
                       placeholder="0 * * * *"
-                      required
+                      {...register("cronExpr")}
                     />
                   </div>
                   <div>
                     <Input
                       label="Timezone"
                       type="text"
-                      value={formTz}
-                      onChange={(e) => setFormTz(e.target.value)}
                       placeholder="America/New_York"
+                      {...register("tz")}
                     />
                   </div>
                 </>
               )}
 
               <div className="cr-form-full">
-                <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
-                  Message
-                </label>
-                <textarea
-                  className="w-full px-4 py-2.5 bg-bg border border-border rounded-lg text-foreground text-sm outline-none transition-colors duration-150 focus:border-accent placeholder:text-faint resize-none"
-                  value={formMessage}
-                  onChange={(e) => setFormMessage(e.target.value)}
-                  rows={2}
-                  placeholder="Task for the agent..."
-                  required
-                />
+                <FormField error={errors.message}>
+                  <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
+                    Message
+                  </label>
+                  <textarea
+                    className="w-full px-4 py-2.5 bg-bg border border-border rounded-lg text-foreground text-sm outline-none transition-colors duration-150 focus:border-accent placeholder:text-faint resize-none"
+                    rows={2}
+                    placeholder="Task for the agent..."
+                    {...register("message")}
+                  />
+                </FormField>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                   Agent
                 </label>
-                <select
-                  className={selectClass}
-                  value={formAgentId}
-                  onChange={(e) => setFormAgentId(e.target.value)}
-                >
-                  <option value="">Default</option>
-                  {agents.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name} ({a.id})
-                    </option>
-                  ))}
-                </select>
+                <Controller
+                  control={control}
+                  name="agentId"
+                  render={({ field }) => (
+                    <select className={selectClass} {...field}>
+                      <option value="">Default</option>
+                      {agents.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} ({a.id})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                   Priority
                 </label>
-                <select
-                  className={selectClass}
-                  value={formPriority}
-                  onChange={(e) => setFormPriority(e.target.value)}
-                >
-                  <option value="1">High (1)</option>
-                  <option value="3">Medium-High (3)</option>
-                  <option value="5">Medium (5)</option>
-                  <option value="10">Normal (10)</option>
-                  <option value="15">Low (15)</option>
-                </select>
+                <Controller
+                  control={control}
+                  name="priority"
+                  render={({ field }) => (
+                    <select className={selectClass} {...field}>
+                      <option value="1">High (1)</option>
+                      <option value="3">Medium-High (3)</option>
+                      <option value="5">Medium (5)</option>
+                      <option value="10">Normal (10)</option>
+                      <option value="15">Low (15)</option>
+                    </select>
+                  )}
+                />
               </div>
               <div className="flex items-end pb-1">
-                <Toggle
-                  label="Delete after first run"
-                  checked={formDeleteAfterRun}
-                  onChange={(v) => setFormDeleteAfterRun(v)}
+                <Controller
+                  control={control}
+                  name="deleteAfterRun"
+                  render={({ field }) => (
+                    <Toggle
+                      label="Delete after first run"
+                      checked={field.value}
+                      onChange={field.onChange}
+                    />
+                  )}
                 />
               </div>
             </div>
@@ -813,7 +828,8 @@ export default function Cron() {
                 size="sm"
                 onClick={() => {
                   setShowForm(false);
-                  resetForm();
+                  reset();
+                  setFormError("");
                 }}
               >
                 Cancel

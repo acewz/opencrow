@@ -5,30 +5,33 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   readonly label?: string;
 }
 
-export function Input({ label, id, className, ...props }: InputProps) {
-  const input = (
-    <input
-      id={id}
-      className={cn(
-        "w-full px-4 py-2.5 bg-bg border border-border-2 rounded-lg text-foreground text-base outline-none transition-colors duration-150",
-        "focus:border-accent placeholder:text-faint",
-        className,
-      )}
-      {...props}
-    />
-  );
+export const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  function Input({ label, id, className, ...props }, ref) {
+    const input = (
+      <input
+        ref={ref}
+        id={id}
+        className={cn(
+          "w-full px-4 py-2.5 bg-bg border border-border-2 rounded-lg text-foreground text-base outline-none transition-colors duration-150",
+          "focus:border-accent placeholder:text-faint",
+          className,
+        )}
+        {...props}
+      />
+    );
 
-  if (!label) return input;
+    if (!label) return input;
 
-  return (
-    <div>
-      <label
-        className="block text-sm font-semibold text-muted uppercase tracking-wide mb-2"
-        htmlFor={id}
-      >
-        {label}
-      </label>
-      {input}
-    </div>
-  );
-}
+    return (
+      <div>
+        <label
+          className="block text-sm font-semibold text-muted uppercase tracking-wide mb-2"
+          htmlFor={id}
+        >
+          {label}
+        </label>
+        {input}
+      </div>
+    );
+  },
+);

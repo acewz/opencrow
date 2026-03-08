@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { Controller } from "react-hook-form";
+import { z } from "zod";
 import { Pencil, Trash2, Plus } from "lucide-react";
 import { apiFetch } from "../api";
 import {
@@ -9,7 +11,9 @@ import {
   Modal,
   Input,
   Toggle,
+  FormField,
 } from "../components";
+import { useZodForm } from "../hooks/useZodForm";
 import { cn } from "../lib/cn";
 
 interface RoutingRule {
@@ -25,17 +29,19 @@ interface RoutingRule {
   readonly updatedAt: number;
 }
 
-interface RuleForm {
-  readonly channel: string;
-  readonly matchType: string;
-  readonly matchValue: string;
-  readonly agentId: string;
-  readonly priority: number;
-  readonly enabled: boolean;
-  readonly notes: string;
-}
+const ruleFormSchema = z.object({
+  channel: z.string(),
+  matchType: z.string(),
+  matchValue: z.string().min(1, "Match value is required"),
+  agentId: z.string().min(1, "Agent ID is required"),
+  priority: z.number().int(),
+  enabled: z.boolean(),
+  notes: z.string(),
+});
 
-const EMPTY_FORM: RuleForm = {
+type RuleFormValues = z.infer<typeof ruleFormSchema>;
+
+const EMPTY_FORM: RuleFormValues = {
   channel: "*",
   matchType: "chat",
   matchValue: "",
@@ -127,14 +133,32 @@ function RuleFormModal({
   onClose: () => void;
   onSave: () => void;
 }) {
-  const [form, setForm] = useState<RuleForm>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [apiError, setApiError] = useState("");
   const isEdit = rule !== null;
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    control,
+    formState: { errors, isSubmitting },
+  } = useZodForm(ruleFormSchema, {
+    defaultValues: rule
+      ? {
+          channel: rule.channel,
+          matchType: rule.matchType,
+          matchValue: rule.matchValue,
+          agentId: rule.agentId,
+          priority: rule.priority,
+          enabled: rule.enabled,
+          notes: rule.notes ?? "",
+        }
+      : EMPTY_FORM,
+  });
 
   useEffect(() => {
     if (rule) {
-      setForm({
+      reset({
         channel: rule.channel,
         matchType: rule.matchType,
         matchValue: rule.matchValue,
@@ -144,31 +168,21 @@ function RuleFormModal({
         notes: rule.notes ?? "",
       });
     } else {
-      setForm(EMPTY_FORM);
+      reset(EMPTY_FORM);
     }
-  }, [rule]);
+  }, [rule, reset]);
 
-  function updateField<K extends keyof RuleForm>(key: K, value: RuleForm[K]) {
-    setForm((prev) => ({ ...prev, [key]: value }));
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.matchValue.trim() || !form.agentId.trim()) {
-      setError("Match value and Agent ID are required.");
-      return;
-    }
-    setSaving(true);
-    setError("");
+  async function onSubmit(values: RuleFormValues) {
+    setApiError("");
     try {
       const body = {
-        channel: form.channel,
-        matchType: form.matchType,
-        matchValue: form.matchValue.trim(),
-        agentId: form.agentId.trim(),
-        priority: form.priority,
-        enabled: form.enabled,
-        notes: form.notes.trim() || null,
+        channel: values.channel,
+        matchType: values.matchType,
+        matchValue: values.matchValue.trim(),
+        agentId: values.agentId.trim(),
+        priority: values.priority,
+        enabled: values.enabled,
+        notes: values.notes.trim() || null,
       };
       if (isEdit) {
         await apiFetch(`/api/routing/rules/${rule.id}`, {
@@ -186,9 +200,7 @@ function RuleFormModal({
       onSave();
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to save rule";
-      setError(msg);
-    } finally {
-      setSaving(false);
+      setApiError(msg);
     }
   }
 
@@ -198,97 +210,103 @@ function RuleFormModal({
       onClose={onClose}
       title={isEdit ? "Edit Routing Rule" : "Create Routing Rule"}
     >
-      {error && (
+      {apiError && (
         <div className="bg-danger-subtle border border-danger/20 rounded-lg px-4 py-3 text-danger text-sm mb-5">
-          {error}
+          {apiError}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-4">
-          <SelectField
-            label="Channel"
-            id="rule-channel"
-            value={form.channel}
-            onChange={(v) => updateField("channel", v)}
-            options={[
-              { value: "*", label: "Any (*)" },
-              { value: "telegram", label: "Telegram" },
-              { value: "whatsapp", label: "WhatsApp" },
-            ]}
+          <Controller
+            name="channel"
+            control={control}
+            render={({ field }) => (
+              <SelectField
+                label="Channel"
+                id="rule-channel"
+                value={field.value}
+                onChange={field.onChange}
+                options={[
+                  { value: "*", label: "Any (*)" },
+                  { value: "telegram", label: "Telegram" },
+                  { value: "whatsapp", label: "WhatsApp" },
+                ]}
+              />
+            )}
           />
-          <SelectField
-            label="Match Type"
-            id="rule-match-type"
-            value={form.matchType}
-            onChange={(v) => updateField("matchType", v)}
-            options={[
-              { value: "chat", label: "Chat" },
-              { value: "user", label: "User" },
-              { value: "group", label: "Group" },
-              { value: "pattern", label: "Pattern" },
-            ]}
+          <Controller
+            name="matchType"
+            control={control}
+            render={({ field }) => (
+              <SelectField
+                label="Match Type"
+                id="rule-match-type"
+                value={field.value}
+                onChange={field.onChange}
+                options={[
+                  { value: "chat", label: "Chat" },
+                  { value: "user", label: "User" },
+                  { value: "group", label: "Group" },
+                  { value: "pattern", label: "Pattern" },
+                ]}
+              />
+            )}
           />
         </div>
 
-        <Input
-          label="Match Value"
-          id="rule-match-value"
-          value={form.matchValue}
-          onChange={(e) => updateField("matchValue", e.target.value)}
-          placeholder="e.g. 12345678 or /hello.*/"
-        />
+        <FormField label="Match Value" id="rule-match-value" error={errors.matchValue}>
+          <Input
+            id="rule-match-value"
+            {...register("matchValue")}
+            placeholder="e.g. 12345678 or /hello.*/"
+          />
+        </FormField>
 
-        <Input
-          label="Agent ID"
-          id="rule-agent-id"
-          value={form.agentId}
-          onChange={(e) => updateField("agentId", e.target.value)}
-          placeholder="e.g. default or ai-idea-gen"
-        />
+        <FormField label="Agent ID" id="rule-agent-id" error={errors.agentId}>
+          <Input
+            id="rule-agent-id"
+            {...register("agentId")}
+            placeholder="e.g. default or ai-idea-gen"
+          />
+        </FormField>
 
         <div className="grid grid-cols-2 gap-4 items-end">
-          <div>
-            <label
-              className="block text-sm font-semibold text-muted uppercase tracking-wide mb-2"
-              htmlFor="rule-priority"
-            >
-              Priority
-            </label>
+          <FormField label="Priority" id="rule-priority" hint="Higher = checked first">
             <input
               id="rule-priority"
               type="number"
-              value={form.priority}
-              onChange={(e) =>
-                updateField("priority", parseInt(e.target.value, 10) || 0)
-              }
+              {...register("priority", { valueAsNumber: true })}
               className="w-full px-4 py-2.5 bg-bg border border-border-2 rounded-lg text-foreground text-base outline-none transition-colors duration-150 focus:border-accent font-mono"
             />
-            <span className="text-[11px] text-faint mt-1 block">
-              Higher = checked first
-            </span>
-          </div>
+          </FormField>
           <div className="flex items-center gap-3 pb-6">
-            <Toggle
-              checked={form.enabled}
-              onChange={(v) => updateField("enabled", v)}
-              label="Enabled"
+            <Controller
+              name="enabled"
+              control={control}
+              render={({ field }) => (
+                <Toggle
+                  checked={field.value}
+                  onChange={field.onChange}
+                  label="Enabled"
+                />
+              )}
             />
           </div>
         </div>
 
-        <Input
-          label="Notes (optional)"
-          id="rule-notes"
-          value={form.notes}
-          onChange={(e) => updateField("notes", e.target.value)}
-          placeholder="Optional description..."
-        />
+        <FormField label="Notes (optional)" id="rule-notes">
+          <Input
+            id="rule-notes"
+            {...register("notes")}
+            placeholder="Optional description..."
+          />
+        </FormField>
 
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="secondary" type="button" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" loading={saving}>
+          <Button type="submit" loading={isSubmitting}>
             {isEdit ? "Save Changes" : "Create Rule"}
           </Button>
         </div>

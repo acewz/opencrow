@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { z } from "zod";
 import { QRCodeSVG } from "qrcode.react";
 import { setupChannel, requestWhatsAppPairingCode, apiFetch } from "../api";
 import { cn } from "../lib/cn";
-import { Button, Input } from "../components";
+import { Button, Input, FormField } from "../components";
+import { useZodForm } from "../hooks/useZodForm";
 
 interface ChannelSetupFormProps {
   channelId: string;
@@ -10,26 +12,34 @@ interface ChannelSetupFormProps {
   onSaved: () => void;
 }
 
+const telegramSchema = z.object({
+  botToken: z.string(),
+  allowedUserIds: z.string(),
+});
+
 function TelegramSetupForm({
   snapshot,
   onSaved,
 }: Omit<ChannelSetupFormProps, "channelId">) {
   const currentIds = (snapshot.allowedUserIds as number[]) ?? [];
-  const [botToken, setBotToken] = useState("");
-  const [allowedUserIds, setAllowedUserIds] = useState(currentIds.join(", "));
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [apiError, setApiError] = useState("");
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useZodForm(telegramSchema, {
+    defaultValues: { botToken: "", allowedUserIds: currentIds.join(", ") },
+  });
+
+  async function onSubmit(values: z.infer<typeof telegramSchema>) {
+    setApiError("");
     try {
       const input: Record<string, unknown> = {};
-      if (botToken.trim()) {
-        input.botToken = botToken.trim();
+      if (values.botToken.trim()) {
+        input.botToken = values.botToken.trim();
       }
-      const parsed = allowedUserIds
+      const parsed = values.allowedUserIds
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean)
@@ -40,47 +50,52 @@ function TelegramSetupForm({
       onSaved();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save";
-      setError(msg);
-    } finally {
-      setSaving(false);
+      setApiError(msg);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {error && (
+    <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
+      {apiError && (
         <div className="text-danger text-sm font-mono px-4 py-3 bg-danger-subtle border border-border rounded-md break-words leading-relaxed">
-          {error}
+          {apiError}
         </div>
       )}
       <div className="mb-4">
-        <Input
-          label="Bot Token"
-          type="password"
-          value={botToken}
-          onChange={(e) => setBotToken(e.target.value)}
-          placeholder={
-            snapshot.configured ? "(unchanged)" : "Enter bot token..."
-          }
-        />
+        <FormField label="Bot Token" id="tg-bot-token">
+          <Input
+            id="tg-bot-token"
+            type="password"
+            {...register("botToken")}
+            placeholder={
+              snapshot.configured ? "(unchanged)" : "Enter bot token..."
+            }
+          />
+        </FormField>
       </div>
       <div className="mb-4">
-        <Input
-          label="Allowed User IDs (comma-separated)"
-          type="text"
-          value={allowedUserIds}
-          onChange={(e) => setAllowedUserIds(e.target.value)}
-          placeholder="Leave empty to allow all"
-        />
+        <FormField label="Allowed User IDs (comma-separated)" id="tg-user-ids">
+          <Input
+            id="tg-user-ids"
+            type="text"
+            {...register("allowedUserIds")}
+            placeholder="Leave empty to allow all"
+          />
+        </FormField>
       </div>
       <div>
-        <Button type="submit" size="sm" loading={saving}>
-          {saving ? "Saving..." : "Save"}
+        <Button type="submit" size="sm" loading={isSubmitting}>
+          {isSubmitting ? "Saving..." : "Save"}
         </Button>
       </div>
     </form>
   );
 }
+
+const whatsappSchema = z.object({
+  allowedNumbers: z.string(),
+  allowedGroups: z.string(),
+});
 
 function WhatsAppSetupForm({
   snapshot: initialSnapshot,
@@ -96,14 +111,21 @@ function WhatsAppSetupForm({
 
   const [phoneNumber, setPhoneNumber] = useState("");
   const [pairingCode, setPairingCode] = useState("");
-  const [allowedNumbers, setAllowedNumbers] = useState(
-    currentNumbers.join(", "),
-  );
-  const [allowedGroups, setAllowedGroups] = useState(currentGroups.join(", "));
-  const [error, setError] = useState("");
-  const [saving, setSaving] = useState(false);
+  const [pairingError, setPairingError] = useState("");
   const [requesting, setRequesting] = useState(false);
   const [pairMode, setPairMode] = useState<"qr" | "code">("qr");
+  const [apiError, setApiError] = useState("");
+
+  const {
+    register,
+    handleSubmit,
+    formState: { isSubmitting },
+  } = useZodForm(whatsappSchema, {
+    defaultValues: {
+      allowedNumbers: currentNumbers.join(", "),
+      allowedGroups: currentGroups.join(", "),
+    },
+  });
 
   useEffect(() => {
     if (isConnected) return;
@@ -125,11 +147,11 @@ function WhatsAppSetupForm({
 
   async function handlePair() {
     if (!phoneNumber.trim()) {
-      setError("Enter your phone number (country code + number, no +)");
+      setPairingError("Enter your phone number (country code + number, no +)");
       return;
     }
     setRequesting(true);
-    setError("");
+    setPairingError("");
     setPairingCode("");
     try {
       const res = await requestWhatsAppPairingCode(phoneNumber.trim());
@@ -139,22 +161,20 @@ function WhatsAppSetupForm({
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "Failed to request pairing code";
-      setError(msg);
+      setPairingError(msg);
     } finally {
       setRequesting(false);
     }
   }
 
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaving(true);
-    setError("");
+  async function onSubmit(values: z.infer<typeof whatsappSchema>) {
+    setApiError("");
     try {
-      const parsed = allowedNumbers
+      const parsed = values.allowedNumbers
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
-      const parsedGroups = allowedGroups
+      const parsedGroups = values.allowedGroups
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
@@ -165,9 +185,7 @@ function WhatsAppSetupForm({
       onSaved();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to save";
-      setError(msg);
-    } finally {
-      setSaving(false);
+      setApiError(msg);
     }
   }
 
@@ -187,9 +205,9 @@ function WhatsAppSetupForm({
 
   return (
     <div className="flex flex-col gap-4">
-      {error && (
+      {pairingError && (
         <div className="text-danger text-sm font-mono px-4 py-3 bg-danger-subtle border border-border rounded-md break-words leading-relaxed">
-          {error}
+          {pairingError}
         </div>
       )}
 
@@ -283,28 +301,41 @@ function WhatsAppSetupForm({
         </>
       )}
 
-      <form onSubmit={handleSave}>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {apiError && (
+          <div className="text-danger text-sm font-mono px-4 py-3 bg-danger-subtle border border-border rounded-md break-words leading-relaxed mb-4">
+            {apiError}
+          </div>
+        )}
         <div className="mb-4">
-          <Input
+          <FormField
             label="Allowed Numbers (comma-separated)"
-            type="text"
-            value={allowedNumbers}
-            onChange={(e) => setAllowedNumbers(e.target.value)}
-            placeholder="491234567890, 441234567890"
-          />
+            id="wa-allowed-numbers"
+          >
+            <Input
+              id="wa-allowed-numbers"
+              type="text"
+              {...register("allowedNumbers")}
+              placeholder="491234567890, 441234567890"
+            />
+          </FormField>
         </div>
         <div className="mb-4">
-          <Input
+          <FormField
             label="Allowed Groups (comma-separated group JIDs, empty = all)"
-            type="text"
-            value={allowedGroups}
-            onChange={(e) => setAllowedGroups(e.target.value)}
-            placeholder="905067857210-1561807226@g.us"
-          />
+            id="wa-allowed-groups"
+          >
+            <Input
+              id="wa-allowed-groups"
+              type="text"
+              {...register("allowedGroups")}
+              placeholder="905067857210-1561807226@g.us"
+            />
+          </FormField>
         </div>
         <div>
-          <Button type="submit" size="sm" loading={saving}>
-            {saving ? "Saving..." : "Save"}
+          <Button type="submit" size="sm" loading={isSubmitting}>
+            {isSubmitting ? "Saving..." : "Save"}
           </Button>
         </div>
       </form>

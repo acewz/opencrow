@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
+import { z } from "zod";
+import { Controller } from "react-hook-form";
 import { apiFetch, updateAgent, createAgent, setConfigHash } from "../../api";
 import { cn } from "../../lib/cn";
 import type {
@@ -9,7 +11,8 @@ import type {
   ToolInfo,
   MutationResponse,
 } from "./types";
-import { Button, Input } from "../../components";
+import { Button, Input, FormField } from "../../components";
+import { useZodForm } from "../../hooks/useZodForm";
 
 /* ===============================================
    Modal Backdrop -- shared overlay component
@@ -106,6 +109,47 @@ export function DeleteDialog({
 }
 
 /* ===============================================
+   Agent Form schema
+   =============================================== */
+const agentFormSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1, "Name is required"),
+  description: z.string(),
+  provider: z.string(),
+  model: z.string(),
+  maxIterations: z.number().int().min(1).max(100),
+  reasoning: z.boolean(),
+  thinkingMode: z.enum(["adaptive", "enabled", "disabled"]),
+  thinkingBudget: z.number().int(),
+  effort: z.enum(["low", "medium", "high", "max"]),
+  extendedContext: z.boolean(),
+  stateless: z.boolean(),
+  maxInputLength: z.coerce.number().optional(),
+  systemPrompt: z.string(),
+  toolMode: z.enum(["all", "allowlist", "blocklist"]),
+  selectedTools: z.array(z.string()),
+  allowAgents: z.string(),
+  maxChildren: z.number().int().min(1).max(20),
+  telegramBotToken: z.string(),
+  mcpBrowser: z.boolean(),
+  mcpGithub: z.boolean(),
+  mcpContext7: z.boolean(),
+  mcpSeqThinking: z.boolean(),
+  mcpDbhub: z.boolean(),
+  mcpFilesystem: z.boolean(),
+  mcpGit: z.boolean(),
+  mcpQdrant: z.boolean(),
+  mcpBraveSearch: z.boolean(),
+  mcpFirecrawl: z.boolean(),
+  mcpSerena: z.boolean(),
+  hookAuditLog: z.boolean(),
+  hookNotifications: z.boolean(),
+  selectedSkills: z.array(z.string()),
+});
+
+type AgentFormValues = z.infer<typeof agentFormSchema>;
+
+/* ===============================================
    Agent Form (shared between Create & Edit)
    =============================================== */
 export function AgentFormModal({
@@ -119,239 +163,185 @@ export function AgentFormModal({
   onDone: () => void;
   onCancel: () => void;
 }) {
-  const [id, setId] = useState(initial?.id ?? "");
-  const [name, setName] = useState(initial?.name ?? "");
-  const [description, setDescription] = useState(initial?.description ?? "");
-  const [provider, setProvider] = useState<AiProvider>(
-    initial?.provider ?? "agent-sdk",
-  );
-  const [model, setModel] = useState(initial?.model ?? "");
-  const [maxIterations, setMaxIterations] = useState(
-    initial?.maxIterations ?? 100,
-  );
-  const [reasoning, setReasoning] = useState(initial?.reasoning ?? false);
-  const [thinkingMode, setThinkingMode] = useState<
-    "adaptive" | "enabled" | "disabled"
-  >((initial as any)?.modelParams?.thinkingMode ?? "adaptive");
-  const [thinkingBudget, setThinkingBudget] = useState(
-    (initial as any)?.modelParams?.thinkingBudget ?? 32000,
-  );
-  const [effort, setEffort] = useState<"low" | "medium" | "high" | "max">(
-    (initial as any)?.modelParams?.effort ?? "high",
-  );
-  const [extendedContext, setExtendedContext] = useState(
-    (initial as any)?.modelParams?.extendedContext ?? false,
-  );
-  const [stateless, setStateless] = useState(initial?.stateless ?? false);
-  const [maxInputLength, setMaxInputLength] = useState<number | "">(
-    initial?.maxInputLength ?? "",
-  );
-  const [systemPrompt, setSystemPrompt] = useState(initial?.systemPrompt ?? "");
-  const [toolMode, setToolMode] = useState<"all" | "allowlist" | "blocklist">(
-    initial?.toolFilter?.mode ?? "all",
-  );
-  const [selectedTools, setSelectedTools] = useState<string[]>(
-    initial?.toolFilter?.tools ?? [],
-  );
-  const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
-  const [allowAgents, setAllowAgents] = useState(
-    initial?.subagents?.allowAgents?.join(", ") ?? "*",
-  );
-  const [maxChildren, setMaxChildren] = useState(
-    initial?.subagents?.maxChildren ?? 5,
-  );
-  const [telegramBotToken, setTelegramBotToken] = useState(
-    initial?.telegramBotToken ?? "",
-  );
-  const [mcpBrowser, setMcpBrowser] = useState(
-    initial?.mcpServers?.browser ?? false,
-  );
-  const [mcpGithub, setMcpGithub] = useState(
-    initial?.mcpServers?.github ?? false,
-  );
-  const [mcpContext7, setMcpContext7] = useState(
-    initial?.mcpServers?.context7 ?? false,
-  );
-  const [mcpSeqThinking, setMcpSeqThinking] = useState(
-    initial?.mcpServers?.sequentialThinking ?? false,
-  );
-  const [mcpDbhub, setMcpDbhub] = useState(initial?.mcpServers?.dbhub ?? false);
-  const [mcpFilesystem, setMcpFilesystem] = useState(
-    initial?.mcpServers?.filesystem ?? false,
-  );
-  const [mcpGit, setMcpGit] = useState(initial?.mcpServers?.git ?? false);
-  const [mcpQdrant, setMcpQdrant] = useState(
-    initial?.mcpServers?.qdrant ?? false,
-  );
-  const [mcpBraveSearch, setMcpBraveSearch] = useState(
-    initial?.mcpServers?.braveSearch ?? false,
-  );
-  const [mcpFirecrawl, setMcpFirecrawl] = useState(
-    initial?.mcpServers?.firecrawl ?? false,
-  );
-  const [mcpSerena, setMcpSerena] = useState(
-    initial?.mcpServers?.serena ?? false,
-  );
-  const [hookAuditLog, setHookAuditLog] = useState(
-    initial?.hooks?.auditLog !== false,
-  );
-  const [hookNotifications, setHookNotifications] = useState(
-    initial?.hooks?.notifications !== false,
-  );
-  const [selectedSkills, setSelectedSkills] = useState<string[]>(
-    initial?.skills ?? [],
-  );
-  const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
-  const [skillSearch, setSkillSearch] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
-  /* Form tab navigation */
+  /* ── UI-only state (not form data) ── */
   const [formTab, setFormTab] = useState<"basic" | "model" | "tools" | "advanced">("basic");
-
-  /* Template picker state (create mode only) */
   const [templates, setTemplates] = useState<readonly AgentTemplate[]>([]);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [availableTools, setAvailableTools] = useState<ToolInfo[]>([]);
+  const [availableSkills, setAvailableSkills] = useState<SkillInfo[]>([]);
+  const [skillSearch, setSkillSearch] = useState("");
+  const [apiError, setApiError] = useState("");
 
+  /* ── Form ── */
+  const {
+    register,
+    handleSubmit,
+    watch,
+    setValue,
+    control,
+    formState: { errors, isSubmitting },
+  } = useZodForm(agentFormSchema, {
+    defaultValues: {
+      id: initial?.id ?? "",
+      name: initial?.name ?? "",
+      description: initial?.description ?? "",
+      provider: initial?.provider ?? "agent-sdk",
+      model: initial?.model ?? "",
+      maxIterations: initial?.maxIterations ?? 100,
+      reasoning: initial?.reasoning ?? false,
+      thinkingMode: (initial as any)?.modelParams?.thinkingMode ?? "adaptive",
+      thinkingBudget: (initial as any)?.modelParams?.thinkingBudget ?? 32000,
+      effort: (initial as any)?.modelParams?.effort ?? "high",
+      extendedContext: (initial as any)?.modelParams?.extendedContext ?? false,
+      stateless: initial?.stateless ?? false,
+      maxInputLength: initial?.maxInputLength ?? undefined,
+      systemPrompt: initial?.systemPrompt ?? "",
+      toolMode: initial?.toolFilter?.mode ?? "all",
+      selectedTools: initial?.toolFilter?.tools ?? [],
+      allowAgents: initial?.subagents?.allowAgents?.join(", ") ?? "*",
+      maxChildren: initial?.subagents?.maxChildren ?? 5,
+      telegramBotToken: initial?.telegramBotToken ?? "",
+      mcpBrowser: initial?.mcpServers?.browser ?? false,
+      mcpGithub: initial?.mcpServers?.github ?? false,
+      mcpContext7: initial?.mcpServers?.context7 ?? false,
+      mcpSeqThinking: initial?.mcpServers?.sequentialThinking ?? false,
+      mcpDbhub: initial?.mcpServers?.dbhub ?? false,
+      mcpFilesystem: initial?.mcpServers?.filesystem ?? false,
+      mcpGit: initial?.mcpServers?.git ?? false,
+      mcpQdrant: initial?.mcpServers?.qdrant ?? false,
+      mcpBraveSearch: initial?.mcpServers?.braveSearch ?? false,
+      mcpFirecrawl: initial?.mcpServers?.firecrawl ?? false,
+      mcpSerena: initial?.mcpServers?.serena ?? false,
+      hookAuditLog: initial?.hooks?.auditLog !== false,
+      hookNotifications: initial?.hooks?.notifications !== false,
+      selectedSkills: initial?.skills ?? [],
+    },
+  });
+
+  /* ── Watched values for conditional rendering ── */
+  const thinkingMode = watch("thinkingMode");
+  const toolMode = watch("toolMode");
+  const selectedTools = watch("selectedTools");
+  const selectedSkills = watch("selectedSkills");
+  const provider = watch("provider");
+
+  /* ── Template application ── */
   const applyTemplate = useCallback((tpl: AgentTemplate) => {
     setSelectedTemplate(tpl.templateId);
-    setProvider(tpl.config.provider as AiProvider);
-    setModel(tpl.config.model);
-    setMaxIterations(tpl.config.maxIterations);
-    setStateless(tpl.config.stateless);
-    setReasoning(tpl.config.reasoning);
-    setToolMode(
-      tpl.config.toolFilter.mode as "all" | "allowlist" | "blocklist",
-    );
-    setSelectedTools([...tpl.config.toolFilter.tools]);
+    setValue("provider", tpl.config.provider as AiProvider);
+    setValue("model", tpl.config.model);
+    setValue("maxIterations", tpl.config.maxIterations);
+    setValue("stateless", tpl.config.stateless);
+    setValue("reasoning", tpl.config.reasoning);
+    setValue("toolMode", tpl.config.toolFilter.mode as "all" | "allowlist" | "blocklist");
+    setValue("selectedTools", [...tpl.config.toolFilter.tools]);
     const mp = tpl.config.modelParams as Record<string, unknown>;
-    setThinkingMode(
-      (mp.thinkingMode as "adaptive" | "enabled" | "disabled") ?? "adaptive",
-    );
-    setEffort((mp.effort as "low" | "medium" | "high" | "max") ?? "high");
-  }, []);
+    setValue("thinkingMode", (mp.thinkingMode as "adaptive" | "enabled" | "disabled") ?? "adaptive");
+    setValue("effort", (mp.effort as "low" | "medium" | "high" | "max") ?? "high");
+  }, [setValue]);
 
+  /* ── Data fetching ── */
   useEffect(() => {
     apiFetch<{ success: boolean; data: SkillInfo[] }>("/api/skills")
-      .then((res) => {
-        if (res.success) setAvailableSkills(res.data);
-      })
+      .then((res) => { if (res.success) setAvailableSkills(res.data); })
       .catch(() => {});
     apiFetch<{ success: boolean; data: ToolInfo[] }>("/api/tools")
-      .then((res) => {
-        if (res.success) setAvailableTools(res.data);
-      })
+      .then((res) => { if (res.success) setAvailableTools(res.data); })
       .catch(() => {});
     if (mode === "create") {
-      apiFetch<{ success: boolean; data: readonly AgentTemplate[] }>(
-        "/api/agents/templates",
-      )
-        .then((res) => {
-          if (res.success) setTemplates(res.data);
-        })
+      apiFetch<{ success: boolean; data: readonly AgentTemplate[] }>("/api/agents/templates")
+        .then((res) => { if (res.success) setTemplates(res.data); })
         .catch(() => {});
     }
   }, []);
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (mode === "create" && (!id.trim() || !name.trim())) {
-      setError("ID and Name are required");
+  /* ── Submit ── */
+  async function onSubmit(values: AgentFormValues) {
+    if (mode === "create" && !values.id.trim()) {
+      setApiError("ID is required");
       return;
     }
-    if (mode === "edit" && !name.trim()) {
-      setError("Name is required");
-      return;
-    }
-    setSaving(true);
-    setError("");
+    setApiError("");
 
-    const tools = [...selectedTools];
-    const agents = allowAgents
+    const tools = [...values.selectedTools];
+    const agents = values.allowAgents
       .split(",")
       .map((s) => s.trim())
       .filter(Boolean);
 
     const modelParams = {
-      thinkingMode,
-      thinkingBudget,
-      effort,
-      extendedContext: extendedContext || undefined,
+      thinkingMode: values.thinkingMode,
+      thinkingBudget: values.thinkingBudget,
+      effort: values.effort,
+      extendedContext: values.extendedContext || undefined,
     };
 
     try {
       if (mode === "create") {
         const res = (await createAgent({
-          id: id.trim(),
-          name: name.trim(),
-          description: description.trim() || undefined,
-          provider,
-          model: model.trim() || undefined,
-          maxIterations,
-          reasoning: reasoning || undefined,
-          stateless: stateless || undefined,
-          maxInputLength: maxInputLength || undefined,
-          systemPrompt: systemPrompt.trim() || undefined,
+          id: values.id.trim(),
+          name: values.name.trim(),
+          description: values.description.trim() || undefined,
+          provider: values.provider as AiProvider,
+          model: values.model.trim() || undefined,
+          maxIterations: values.maxIterations,
+          reasoning: values.reasoning || undefined,
+          stateless: values.stateless || undefined,
+          maxInputLength: values.maxInputLength || undefined,
+          systemPrompt: values.systemPrompt.trim() || undefined,
           modelParams,
           mcpServers:
-            mcpBrowser ||
-            mcpGithub ||
-            mcpContext7 ||
-            mcpSeqThinking ||
-            mcpDbhub ||
-            mcpFilesystem ||
-            mcpGit ||
-            mcpQdrant ||
-            mcpBraveSearch ||
-            mcpFirecrawl ||
-            mcpSerena
+            values.mcpBrowser || values.mcpGithub || values.mcpContext7 ||
+            values.mcpSeqThinking || values.mcpDbhub || values.mcpFilesystem ||
+            values.mcpGit || values.mcpQdrant || values.mcpBraveSearch ||
+            values.mcpFirecrawl || values.mcpSerena
               ? {
-                  browser: mcpBrowser || undefined,
-                  github: mcpGithub || undefined,
-                  context7: mcpContext7 || undefined,
-                  sequentialThinking: mcpSeqThinking || undefined,
-                  dbhub: mcpDbhub || undefined,
-                  filesystem: mcpFilesystem || undefined,
-                  git: mcpGit || undefined,
-                  qdrant: mcpQdrant || undefined,
-                  braveSearch: mcpBraveSearch || undefined,
-                  firecrawl: mcpFirecrawl || undefined,
-                  serena: mcpSerena || undefined,
+                  browser: values.mcpBrowser || undefined,
+                  github: values.mcpGithub || undefined,
+                  context7: values.mcpContext7 || undefined,
+                  sequentialThinking: values.mcpSeqThinking || undefined,
+                  dbhub: values.mcpDbhub || undefined,
+                  filesystem: values.mcpFilesystem || undefined,
+                  git: values.mcpGit || undefined,
+                  qdrant: values.mcpQdrant || undefined,
+                  braveSearch: values.mcpBraveSearch || undefined,
+                  firecrawl: values.mcpFirecrawl || undefined,
+                  serena: values.mcpSerena || undefined,
                 }
               : undefined,
-          hooks: { auditLog: hookAuditLog, notifications: hookNotifications },
+          hooks: { auditLog: values.hookAuditLog, notifications: values.hookNotifications },
         })) as MutationResponse;
         if (res.configHash) setConfigHash(res.configHash);
       } else {
         const res = (await updateAgent(initial!.id, {
-          name,
-          description,
-          provider,
-          model,
-          maxIterations,
-          reasoning: reasoning || undefined,
-          stateless: stateless || undefined,
-          maxInputLength: maxInputLength || undefined,
+          name: values.name,
+          description: values.description,
+          provider: values.provider as AiProvider,
+          model: values.model,
+          maxIterations: values.maxIterations,
+          reasoning: values.reasoning || undefined,
+          stateless: values.stateless || undefined,
+          maxInputLength: values.maxInputLength || undefined,
           modelParams,
-          systemPrompt,
-          toolFilter: { mode: toolMode, tools },
-          subagents: { allowAgents: agents, maxChildren },
+          systemPrompt: values.systemPrompt,
+          toolFilter: { mode: values.toolMode, tools },
+          subagents: { allowAgents: agents, maxChildren: values.maxChildren },
           mcpServers: {
-            browser: mcpBrowser || undefined,
-            github: mcpGithub || undefined,
-            context7: mcpContext7 || undefined,
-            sequentialThinking: mcpSeqThinking || undefined,
-            dbhub: mcpDbhub || undefined,
-            filesystem: mcpFilesystem || undefined,
-            git: mcpGit || undefined,
-            qdrant: mcpQdrant || undefined,
-            braveSearch: mcpBraveSearch || undefined,
-            firecrawl: mcpFirecrawl || undefined,
-            serena: mcpSerena || undefined,
+            browser: values.mcpBrowser || undefined,
+            github: values.mcpGithub || undefined,
+            context7: values.mcpContext7 || undefined,
+            sequentialThinking: values.mcpSeqThinking || undefined,
+            dbhub: values.mcpDbhub || undefined,
+            filesystem: values.mcpFilesystem || undefined,
+            git: values.mcpGit || undefined,
+            qdrant: values.mcpQdrant || undefined,
+            braveSearch: values.mcpBraveSearch || undefined,
+            firecrawl: values.mcpFirecrawl || undefined,
+            serena: values.mcpSerena || undefined,
           },
-          hooks: { auditLog: hookAuditLog, notifications: hookNotifications },
-          telegramBotToken: telegramBotToken.trim() || undefined,
-          skills: selectedSkills.length > 0 ? selectedSkills : undefined,
+          hooks: { auditLog: values.hookAuditLog, notifications: values.hookNotifications },
+          telegramBotToken: values.telegramBotToken.trim() || undefined,
+          skills: values.selectedSkills.length > 0 ? values.selectedSkills : undefined,
         })) as MutationResponse;
         if (res.configHash) setConfigHash(res.configHash);
       }
@@ -359,21 +349,16 @@ export function AgentFormModal({
     } catch (err: unknown) {
       const apiErr = err as { status?: number; message?: string };
       if (apiErr.status === 409) {
-        setError("Config changed externally. Refreshing...");
+        setApiError("Config changed externally. Refreshing...");
         setTimeout(() => onDone(), 500);
         return;
       }
-      const msg =
-        err instanceof Error
-          ? err.message
-          : (apiErr.message ?? `Failed to ${mode}`);
-      setError(msg);
-    } finally {
-      setSaving(false);
+      const msg = err instanceof Error ? err.message : (apiErr.message ?? `Failed to ${mode}`);
+      setApiError(msg);
     }
   }
 
-  /* ───── Shared select class ───── */
+  /* ── Shared select class ── */
   const selectCls =
     "w-full px-4 py-2.5 bg-bg border border-border rounded-lg text-foreground text-sm outline-none transition-colors duration-150 focus:border-accent";
 
@@ -381,7 +366,7 @@ export function AgentFormModal({
     <ModalBackdrop onClose={onCancel}>
       <form
         className="flex flex-col h-full max-h-[85vh]"
-        onSubmit={handleSubmit}
+        onSubmit={handleSubmit(onSubmit)}
       >
         {/* Header */}
         <div className="flex justify-between items-start px-6 py-6 border-b border-border shrink-0">
@@ -437,9 +422,9 @@ export function AgentFormModal({
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto px-6 py-6 flex flex-col gap-6">
-          {error && (
+          {(apiError || errors.name || errors.id) && (
             <div className="bg-danger-subtle border border-danger/20 rounded-lg px-4 py-2.5 text-danger text-sm animate-[agSlideIn_0.2s_ease-out]">
-              {error}
+              {apiError || errors.name?.message || errors.id?.message}
             </div>
           )}
 
@@ -491,35 +476,36 @@ export function AgentFormModal({
             </legend>
             <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
               {mode === "create" && (
-                <div className="mb-5">
+                <FormField error={errors.id} className="mb-5">
                   <Input
                     label="ID (kebab-case)"
                     type="text"
-                    value={id}
-                    onChange={(e) => setId(e.target.value.toLowerCase())}
                     placeholder="my-agent"
                     pattern="^[a-z0-9][a-z0-9-]*$"
                     required
+                    {...register("id", {
+                      onChange: (e) => {
+                        e.target.value = e.target.value.toLowerCase();
+                      },
+                    })}
                   />
-                </div>
+                </FormField>
               )}
-              <div className="mb-5">
+              <FormField error={errors.name} className="mb-5">
                 <Input
                   label="Name"
                   type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
                   placeholder="My Agent"
                   required
+                  {...register("name")}
                 />
-              </div>
+              </FormField>
               <div className="mb-5 col-span-full">
                 <Input
                   label="Description"
                   type="text"
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
                   placeholder="Short description of this agent's role"
+                  {...register("description")}
                 />
               </div>
             </div>
@@ -540,22 +526,22 @@ export function AgentFormModal({
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                   Provider
                 </label>
-                <select
-                  className={selectCls}
-                  value={provider}
-                  onChange={(e) => setProvider(e.target.value as AiProvider)}
-                >
-                  <option value="agent-sdk">Agent SDK</option>
-                  <option value="openrouter">OpenRouter</option>
-                  <option value="alibaba">Alibaba ModelStudio</option>
-                </select>
+                <Controller
+                  control={control}
+                  name="provider"
+                  render={({ field }) => (
+                    <select className={selectCls} {...field}>
+                      <option value="agent-sdk">Agent SDK</option>
+                      <option value="openrouter">OpenRouter</option>
+                      <option value="alibaba">Alibaba ModelStudio</option>
+                    </select>
+                  )}
+                />
               </div>
               <div className="mb-5">
                 <Input
                   label="Model"
                   type="text"
-                  value={model}
-                  onChange={(e) => setModel(e.target.value)}
                   placeholder={
                     provider === "openrouter"
                       ? "e.g. arcee-ai/trinity-large-preview:free"
@@ -563,30 +549,25 @@ export function AgentFormModal({
                         ? "e.g. qwen3-coder-plus"
                         : "e.g. claude-sonnet-4-6"
                   }
+                  {...register("model")}
                 />
               </div>
               <div className="mb-5">
                 <Input
                   label="Max Iterations"
                   type="number"
-                  value={maxIterations}
-                  onChange={(e) => setMaxIterations(Number(e.target.value))}
                   min={1}
                   max={100}
+                  {...register("maxIterations", { valueAsNumber: true })}
                 />
               </div>
               <div className="mb-5">
                 <Input
                   label="Max Input Length"
                   type="number"
-                  value={maxInputLength}
-                  onChange={(e) =>
-                    setMaxInputLength(
-                      e.target.value ? Number(e.target.value) : "",
-                    )
-                  }
                   min={1}
                   placeholder="No limit"
+                  {...register("maxInputLength", { valueAsNumber: true })}
                 />
               </div>
               <div className="flex items-center mb-5">
@@ -594,8 +575,7 @@ export function AgentFormModal({
                   <input
                     type="checkbox"
                     className="w-4 h-4 accent-accent cursor-pointer"
-                    checked={reasoning}
-                    onChange={(e) => setReasoning(e.target.checked)}
+                    {...register("reasoning")}
                   />
                   <span className="select-none">Extended Thinking</span>
                 </label>
@@ -606,30 +586,27 @@ export function AgentFormModal({
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                   Thinking Mode
                 </label>
-                <select
-                  className={selectCls}
-                  value={thinkingMode}
-                  onChange={(e) =>
-                    setThinkingMode(
-                      e.target.value as "adaptive" | "enabled" | "disabled",
-                    )
-                  }
-                >
-                  <option value="adaptive">Adaptive (model decides)</option>
-                  <option value="enabled">Fixed budget</option>
-                  <option value="disabled">Disabled</option>
-                </select>
+                <Controller
+                  control={control}
+                  name="thinkingMode"
+                  render={({ field }) => (
+                    <select className={selectCls} {...field}>
+                      <option value="adaptive">Adaptive (model decides)</option>
+                      <option value="enabled">Fixed budget</option>
+                      <option value="disabled">Disabled</option>
+                    </select>
+                  )}
+                />
               </div>
               {thinkingMode === "enabled" && (
                 <div className="mb-5">
                   <Input
                     label="Thinking Budget (tokens)"
                     type="number"
-                    value={thinkingBudget}
-                    onChange={(e) => setThinkingBudget(Number(e.target.value))}
                     min={1024}
                     max={128000}
                     step={1024}
+                    {...register("thinkingBudget", { valueAsNumber: true })}
                   />
                 </div>
               )}
@@ -637,28 +614,25 @@ export function AgentFormModal({
                 <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                   Effort Level
                 </label>
-                <select
-                  className={selectCls}
-                  value={effort}
-                  onChange={(e) =>
-                    setEffort(
-                      e.target.value as "low" | "medium" | "high" | "max",
-                    )
-                  }
-                >
-                  <option value="low">Low (fast, minimal thinking)</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High (deep reasoning)</option>
-                  <option value="max">Max (Opus only)</option>
-                </select>
+                <Controller
+                  control={control}
+                  name="effort"
+                  render={({ field }) => (
+                    <select className={selectCls} {...field}>
+                      <option value="low">Low (fast, minimal thinking)</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High (deep reasoning)</option>
+                      <option value="max">Max (Opus only)</option>
+                    </select>
+                  )}
+                />
               </div>
               <div className="flex items-center mb-5">
                 <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
                   <input
                     type="checkbox"
                     className="w-4 h-4 accent-accent cursor-pointer"
-                    checked={extendedContext}
-                    onChange={(e) => setExtendedContext(e.target.checked)}
+                    {...register("extendedContext")}
                   />
                   <span className="select-none">1M Context Window (beta)</span>
                 </label>
@@ -668,8 +642,7 @@ export function AgentFormModal({
                   <input
                     type="checkbox"
                     className="w-4 h-4 accent-accent cursor-pointer"
-                    checked={stateless}
-                    onChange={(e) => setStateless(e.target.checked)}
+                    {...register("stateless")}
                   />
                   <span className="select-none">Stateless</span>
                 </label>
@@ -755,11 +728,10 @@ export function AgentFormModal({
               </div>
             ) : (
               <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
                 rows={6}
                 className="w-full px-4 py-3 bg-bg border border-border rounded-lg text-foreground font-mono text-sm leading-relaxed outline-none transition-colors duration-150 resize-y min-h-[120px] focus:border-accent"
                 placeholder="Uses global default if empty"
+                {...register("systemPrompt")}
               />
             )}
           </fieldset>
@@ -778,19 +750,17 @@ export function AgentFormModal({
                   <label className="block text-xs font-semibold text-muted uppercase tracking-wide mb-2">
                     Mode
                   </label>
-                  <select
-                    className={selectCls}
-                    value={toolMode}
-                    onChange={(e) =>
-                      setToolMode(
-                        e.target.value as "all" | "allowlist" | "blocklist",
-                      )
-                    }
-                  >
-                    <option value="all">All tools</option>
-                    <option value="allowlist">Allowlist</option>
-                    <option value="blocklist">Blocklist</option>
-                  </select>
+                  <Controller
+                    control={control}
+                    name="toolMode"
+                    render={({ field }) => (
+                      <select className={selectCls} {...field}>
+                        <option value="all">All tools</option>
+                        <option value="allowlist">Allowlist</option>
+                        <option value="blocklist">Blocklist</option>
+                      </select>
+                    )}
+                  />
                 </div>
                 {toolMode !== "all" && availableTools.length > 0 && (
                   <div className="mt-2">
@@ -835,10 +805,11 @@ export function AgentFormModal({
                                     : "bg-bg-2 border-border text-muted hover:bg-bg-3 hover:border-border-2 hover:text-strong",
                                 )}
                                 onClick={() =>
-                                  setSelectedTools((prev) =>
+                                  setValue(
+                                    "selectedTools",
                                     isSelected
-                                      ? prev.filter((t) => t !== tool.name)
-                                      : [...prev, tool.name],
+                                      ? selectedTools.filter((t) => t !== tool.name)
+                                      : [...selectedTools, tool.name],
                                   )
                                 }
                               >
@@ -854,9 +825,7 @@ export function AgentFormModal({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() =>
-                          setSelectedTools(availableTools.map((t) => t.name))
-                        }
+                        onClick={() => setValue("selectedTools", availableTools.map((t) => t.name))}
                       >
                         Select all
                       </Button>
@@ -864,7 +833,7 @@ export function AgentFormModal({
                         type="button"
                         variant="secondary"
                         size="sm"
-                        onClick={() => setSelectedTools([])}
+                        onClick={() => setValue("selectedTools", [])}
                       >
                         Clear all
                       </Button>
@@ -928,11 +897,10 @@ export function AgentFormModal({
                             className="hidden"
                             checked={active}
                             onChange={() =>
-                              setSelectedSkills(
+                              setValue(
+                                "selectedSkills",
                                 active
-                                  ? selectedSkills.filter(
-                                      (s) => s !== skill.id,
-                                    )
+                                  ? selectedSkills.filter((s) => s !== skill.id)
                                   : [...selectedSkills, skill.id],
                               )
                             }
@@ -974,19 +942,17 @@ export function AgentFormModal({
                     <Input
                       label="Allowed Agents"
                       type="text"
-                      value={allowAgents}
-                      onChange={(e) => setAllowAgents(e.target.value)}
                       placeholder="* for all, or specific IDs"
+                      {...register("allowAgents")}
                     />
                   </div>
                   <div className="mb-5">
                     <Input
                       label="Max Children"
                       type="number"
-                      value={maxChildren}
-                      onChange={(e) => setMaxChildren(Number(e.target.value))}
                       min={1}
                       max={20}
+                      {...register("maxChildren", { valueAsNumber: true })}
                     />
                   </div>
                 </div>
@@ -998,127 +964,32 @@ export function AgentFormModal({
                   MCP Servers
                 </h4>
                 <div className="grid grid-cols-2 gap-4 max-md:grid-cols-1">
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpBrowser}
-                        onChange={(e) => setMcpBrowser(e.target.checked)}
-                      />
-                      <span className="select-none">Playwright (Browser)</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpGithub}
-                        onChange={(e) => setMcpGithub(e.target.checked)}
-                      />
-                      <span className="select-none">GitHub</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpContext7}
-                        onChange={(e) => setMcpContext7(e.target.checked)}
-                      />
-                      <span className="select-none">Context7 (Docs)</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpSeqThinking}
-                        onChange={(e) => setMcpSeqThinking(e.target.checked)}
-                      />
-                      <span className="select-none">Sequential Thinking</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpDbhub}
-                        onChange={(e) => setMcpDbhub(e.target.checked)}
-                      />
-                      <span className="select-none">DBHub (Database)</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpFilesystem}
-                        onChange={(e) => setMcpFilesystem(e.target.checked)}
-                      />
-                      <span className="select-none">Filesystem</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpGit}
-                        onChange={(e) => setMcpGit(e.target.checked)}
-                      />
-                      <span className="select-none">Git</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpQdrant}
-                        onChange={(e) => setMcpQdrant(e.target.checked)}
-                      />
-                      <span className="select-none">Qdrant (Vector DB)</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpBraveSearch}
-                        onChange={(e) => setMcpBraveSearch(e.target.checked)}
-                      />
-                      <span className="select-none">Brave Search</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpFirecrawl}
-                        onChange={(e) => setMcpFirecrawl(e.target.checked)}
-                      />
-                      <span className="select-none">Firecrawl (Scraping)</span>
-                    </label>
-                  </div>
-                  <div className="flex items-center mb-5">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={mcpSerena}
-                        onChange={(e) => setMcpSerena(e.target.checked)}
-                      />
-                      <span className="select-none">Serena (Code Navigation)</span>
-                    </label>
-                  </div>
+                  {(
+                    [
+                      { name: "mcpBrowser", label: "Playwright (Browser)" },
+                      { name: "mcpGithub", label: "GitHub" },
+                      { name: "mcpContext7", label: "Context7 (Docs)" },
+                      { name: "mcpSeqThinking", label: "Sequential Thinking" },
+                      { name: "mcpDbhub", label: "DBHub (Database)" },
+                      { name: "mcpFilesystem", label: "Filesystem" },
+                      { name: "mcpGit", label: "Git" },
+                      { name: "mcpQdrant", label: "Qdrant (Vector DB)" },
+                      { name: "mcpBraveSearch", label: "Brave Search" },
+                      { name: "mcpFirecrawl", label: "Firecrawl (Scraping)" },
+                      { name: "mcpSerena", label: "Serena (Code Navigation)" },
+                    ] as const
+                  ).map(({ name, label }) => (
+                    <div key={name} className="flex items-center mb-5">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-foreground">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 accent-accent cursor-pointer"
+                          {...register(name)}
+                        />
+                        <span className="select-none">{label}</span>
+                      </label>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -1137,8 +1008,7 @@ export function AgentFormModal({
                       <input
                         type="checkbox"
                         className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={hookAuditLog}
-                        onChange={(e) => setHookAuditLog(e.target.checked)}
+                        {...register("hookAuditLog")}
                       />
                       <span className="select-none">
                         Audit Log (tool calls to DB)
@@ -1150,10 +1020,7 @@ export function AgentFormModal({
                       <input
                         type="checkbox"
                         className="w-4 h-4 accent-accent cursor-pointer"
-                        checked={hookNotifications}
-                        onChange={(e) =>
-                          setHookNotifications(e.target.checked)
-                        }
+                        {...register("hookNotifications")}
                       />
                       <span className="select-none">
                         Notification Forwarding
@@ -1172,10 +1039,9 @@ export function AgentFormModal({
                   <Input
                     label="Bot Token"
                     type="password"
-                    value={telegramBotToken}
-                    onChange={(e) => setTelegramBotToken(e.target.value)}
                     placeholder="Leave empty to disable dedicated bot"
                     autoComplete="off"
+                    {...register("telegramBotToken")}
                   />
                 </div>
               </div>
@@ -1193,8 +1059,8 @@ export function AgentFormModal({
           >
             Cancel
           </Button>
-          <Button type="submit" variant="primary" size="sm" loading={saving}>
-            {saving
+          <Button type="submit" variant="primary" size="sm" loading={isSubmitting}>
+            {isSubmitting
               ? mode === "create"
                 ? "Creating..."
                 : "Saving..."

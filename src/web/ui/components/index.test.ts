@@ -15,6 +15,7 @@ const EXPECTED_EXPORTS = [
   "FeedRow",
   "Button",
   "Input",
+  "FormField",
 ];
 
 test("barrel export has all expected components", () => {
@@ -27,8 +28,10 @@ test("barrel export count matches expected", () => {
   expect(Object.keys(components).length).toBe(EXPECTED_EXPORTS.length);
 });
 
-test("all exports are functions (React components)", () => {
+test("all exports are functions or forwardRef components", () => {
   for (const name of EXPECTED_EXPORTS) {
-    expect(typeof (components as Record<string, unknown>)[name]).toBe("function");
+    const exp = (components as Record<string, unknown>)[name];
+    const valid = typeof exp === "function" || (typeof exp === "object" && exp !== null);
+    expect(valid).toBe(true);
   }
 });

@@ -1,7 +1,17 @@
 import React, { useState } from "react";
-import { Modal, Button, Input } from "../../components";
+import { z } from "zod";
+import { Modal, Button, Input, FormField } from "../../components";
+import { useZodForm } from "../../hooks/useZodForm";
 import { apiFetch } from "../../api";
 import type { AccountResponse } from "./types";
+
+const addAccountSchema = z.object({
+  label: z.string().max(100).optional(),
+  authToken: z.string().min(1, "Auth Token is required"),
+  ct0: z.string().min(1, "CT0 is required"),
+});
+
+type AddAccountValues = z.infer<typeof addAccountSchema>;
 
 interface AddAccountModalProps {
   readonly open: boolean;
@@ -10,95 +20,83 @@ interface AddAccountModalProps {
 }
 
 export function AddAccountModal({ open, onClose, onCreated }: AddAccountModalProps) {
-  const [label, setLabel] = useState("");
-  const [authToken, setAuthToken] = useState("");
-  const [ct0, setCt0] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [apiError, setApiError] = useState("");
+
+  const {
+    register,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useZodForm(addAccountSchema, {
+    defaultValues: { label: "", authToken: "", ct0: "" },
+  });
 
   function handleClose() {
-    setLabel("");
-    setAuthToken("");
-    setCt0("");
-    setError("");
+    reset();
+    setApiError("");
     onClose();
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!authToken.trim() || !ct0.trim()) {
-      setError("Auth Token and CT0 are required");
-      return;
-    }
-    setSaving(true);
-    setError("");
-
+  async function onSubmit(values: AddAccountValues) {
+    setApiError("");
     try {
       await apiFetch<AccountResponse>("/api/x/accounts", {
         method: "POST",
         body: JSON.stringify({
-          label: label.trim() || undefined,
-          auth_token: authToken.trim(),
-          ct0: ct0.trim(),
+          label: values.label?.trim() || undefined,
+          auth_token: values.authToken.trim(),
+          ct0: values.ct0.trim(),
         }),
       });
-      setLabel("");
-      setAuthToken("");
-      setCt0("");
+      reset();
       onCreated();
       onClose();
     } catch (err: unknown) {
       const apiErr = err as { message?: string };
-      setError(apiErr.message ?? "Failed to create account");
-    } finally {
-      setSaving(false);
+      setApiError(apiErr.message ?? "Failed to create account");
     }
   }
 
   return (
     <Modal open={open} onClose={handleClose} title="Add X Account">
-      <form onSubmit={handleSubmit}>
-        {error && (
-          <p className="text-danger text-sm mb-4">{error}</p>
+      <form onSubmit={handleSubmit(onSubmit)}>
+        {apiError && (
+          <p className="text-danger text-sm mb-4">{apiError}</p>
         )}
 
         <div className="flex flex-col gap-4">
-          <Input
-            label="Label (optional)"
-            type="text"
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Main Account, Brand Account..."
-            maxLength={100}
-          />
-          <div>
+          <FormField label="Label (optional)" id="label">
             <Input
-              label="Auth Token"
+              id="label"
+              type="text"
+              {...register("label")}
+              placeholder="e.g. Main Account, Brand Account..."
+              maxLength={100}
+            />
+          </FormField>
+          <FormField label="Auth Token" id="authToken" error={errors.authToken} hint="Find this in browser DevTools > Application > Cookies > x.com">
+            <Input
+              id="authToken"
               type="password"
-              value={authToken}
-              onChange={(e) => setAuthToken(e.target.value)}
+              {...register("authToken")}
               placeholder="Paste auth_token cookie value..."
-              required
               autoComplete="off"
             />
-            <p className="text-faint text-xs mt-1">
-              Find this in browser DevTools &gt; Application &gt; Cookies &gt; x.com
-            </p>
-          </div>
-          <Input
-            label="CT0"
-            type="password"
-            value={ct0}
-            onChange={(e) => setCt0(e.target.value)}
-            placeholder="Paste ct0 cookie value..."
-            required
-            autoComplete="off"
-          />
+          </FormField>
+          <FormField label="CT0" id="ct0" error={errors.ct0}>
+            <Input
+              id="ct0"
+              type="password"
+              {...register("ct0")}
+              placeholder="Paste ct0 cookie value..."
+              autoComplete="off"
+            />
+          </FormField>
         </div>
 
         <div className="flex gap-2 mt-6">
-          <Button type="submit" size="sm" loading={saving}>
-            {saving ? "Adding..." : "Add Account"}
+          <Button type="submit" size="sm" loading={isSubmitting}>
+            {isSubmitting ? "Adding..." : "Add Account"}
           </Button>
           <Button type="button" variant="secondary" size="sm" onClick={handleClose}>
             Cancel
