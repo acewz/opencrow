@@ -8,6 +8,13 @@ const config: ToolsConfig = {
   maxBashTimeout: 30000,
   maxFileSize: 1024 * 1024,
   maxIterations: 200,
+  sandbox: {
+    enabled: false,
+    baseUrl: "http://localhost:8080",
+    defaultTimeout: 30_000,
+    maxTimeout: 120_000,
+    image: "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
+  },
 };
 
 describe("createValidateCodeTool", () => {
@@ -84,6 +91,13 @@ describe("createValidateCodeTool", () => {
         maxBashTimeout: 30000,
         maxFileSize: 1024 * 1024,
         maxIterations: 200,
+      sandbox: {
+        enabled: false,
+        baseUrl: "http://localhost:8080",
+        defaultTimeout: 30_000,
+        maxTimeout: 120_000,
+        image: "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
+      },
       };
       const tool = createValidateCodeTool(restrictedConfig);
       const result = await tool.execute({ path: "/home/not-allowed" });

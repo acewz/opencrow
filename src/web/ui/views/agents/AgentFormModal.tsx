@@ -238,7 +238,7 @@ export function AgentFormModal({
       alibaba: "qwen3.5-plus",
       openrouter: "",
     };
-    setValue("model", defaults[provider] ?? "");
+    setValue("model", defaults[provider as AiProvider] ?? "");
   }, [provider, setValue]);
 
   /* ── Template application ── */

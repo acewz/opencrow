@@ -133,6 +133,25 @@ export const toolsConfigSchema = z.object({
   maxBashTimeout: z.number().int().default(600_000),
   maxFileSize: z.number().int().default(10_485_760),
   maxIterations: z.number().int().default(200),
+  sandbox: z
+    .object({
+      enabled: z.boolean().default(false),
+      baseUrl: z.string().default("http://localhost:8080"),
+      defaultTimeout: z.number().int().default(30_000),
+      maxTimeout: z.number().int().default(120_000),
+      image: z
+        .string()
+        .default(
+          "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
+        ),
+    })
+    .default({
+      enabled: false,
+      baseUrl: "http://localhost:8080",
+      defaultTimeout: 30_000,
+      maxTimeout: 120_000,
+      image: "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
+    }),
 });
 
 export const webConfigSchema = z.object({
@@ -372,6 +391,13 @@ export const opencrowConfigSchema = z.object({
     maxBashTimeout: 600_000,
     maxFileSize: 10_485_760,
     maxIterations: 200,
+    sandbox: {
+      enabled: false,
+      baseUrl: "http://localhost:8080",
+      defaultTimeout: 30_000,
+      maxTimeout: 120_000,
+      image: "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
+    },
   }),
   cron: cronConfigSchema.default({
     defaultTimeoutSeconds: 300,
