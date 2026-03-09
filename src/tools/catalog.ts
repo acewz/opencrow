@@ -302,13 +302,6 @@ export function buildToolCatalog(): readonly ToolCatalogEntry[] {
     maxBashTimeout: 600_000,
     maxFileSize: 10_485_760,
     maxIterations: 50,
-    sandbox: {
-      enabled: false,
-      baseUrl: "http://localhost:8080",
-      defaultTimeout: 30_000,
-      maxTimeout: 120_000,
-      image: "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
-    },
   };
   const baseRegistry = createToolRegistry(defaultConfig);
   tools.push(...baseRegistry.definitions);

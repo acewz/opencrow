@@ -20,13 +20,6 @@ const testConfig: ToolsConfig = {
   maxBashTimeout: 10_000,
   maxFileSize: 1_048_576,
   maxIterations: 50,
-  sandbox: {
-    enabled: false,
-    baseUrl: "http://localhost:8080",
-    defaultTimeout: 30_000,
-    maxTimeout: 120_000,
-    image: "sandbox-registry.cn-zhangjiakou.cr.aliyuncs.com/opensandbox/code-interpreter:v1.0.1",
-  },
 }
 
 // Helper to create a temporary directory for file operations
