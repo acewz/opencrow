@@ -72,7 +72,7 @@ export function createSaveIdeaTool(agentId: string, memoryManager?: MemoryManage
       const rawScore = input.quality_score != null ? Number(input.quality_score) : undefined;
       const qualityScore = rawScore != null && !isNaN(rawScore)
         ? Math.min(Math.max(rawScore, 1), 5)
-        : 1;
+        : null;
 
       try {
         const idea = await insertIdea({
