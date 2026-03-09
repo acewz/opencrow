@@ -92,74 +92,73 @@ async function waitForReady(
   throw new Error("Sandbox did not reach Running state within 30s");
 }
 
+function parseNdjsonOutput(raw: string): {
+  stdout: string;
+  stderr: string;
+  errorInfo: string;
+} {
+  let stdout = "";
+  let stderr = "";
+  let errorInfo = "";
+
+  for (const line of raw.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    try {
+      const event = JSON.parse(trimmed) as SandboxEvent;
+      if (event.type === "stdout" && event.text) {
+        stdout += (stdout ? "\n" : "") + event.text;
+      } else if (event.type === "stderr" && event.text) {
+        stderr += (stderr ? "\n" : "") + event.text;
+      } else if (event.type === "error" && event.error) {
+        errorInfo = `${event.error.ename}: ${event.error.evalue}\n${event.error.traceback.join("\n")}`;
+      }
+    } catch {
+      // skip unparseable lines
+    }
+  }
+
+  return { stdout, stderr, errorInfo };
+}
+
 async function executeInSandbox(
   baseUrl: string,
   sandboxId: string,
   command: string,
   timeoutMs: number,
 ): Promise<{ stdout: string; stderr: string; errorInfo: string }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  const url = `${baseUrl}/sandboxes/${sandboxId}/proxy/44772/command`;
+  const timeoutSec = Math.ceil(timeoutMs / 1000);
 
-  try {
-    const res = await fetch(
-      `${baseUrl}/sandboxes/${sandboxId}/proxy/44772/command`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ command }),
-        signal: controller.signal,
-      },
+  // Use curl subprocess instead of fetch to avoid Bun streaming issues
+  const proc = Bun.spawn(
+    [
+      "curl",
+      "-s",
+      "-X",
+      "POST",
+      "-H",
+      "Content-Type: application/json",
+      "-d",
+      JSON.stringify({ command }),
+      "--max-time",
+      String(timeoutSec),
+      url,
+    ],
+    { stdout: "pipe", stderr: "pipe" },
+  );
+
+  const raw = await new Response(proc.stdout).text();
+  const curlStderr = await new Response(proc.stderr).text();
+  const exitCode = await proc.exited;
+
+  if (exitCode !== 0) {
+    throw new Error(
+      `curl failed (exit ${exitCode}): ${curlStderr.trim() || raw.trim()}`,
     );
-
-    if (!res.ok) {
-      const body = await res.text();
-      throw new Error(`Command execution failed: ${res.status} ${body}`);
-    }
-
-    let stdout = "";
-    let stderr = "";
-    let errorInfo = "";
-
-    // Stream response line-by-line; stop on execution_complete/error
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    outer: for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed) continue;
-        try {
-          const event = JSON.parse(trimmed) as SandboxEvent;
-          if (event.type === "stdout" && event.text) {
-            stdout += (stdout ? "\n" : "") + event.text;
-          } else if (event.type === "stderr" && event.text) {
-            stderr += (stderr ? "\n" : "") + event.text;
-          } else if (event.type === "error" && event.error) {
-            errorInfo = `${event.error.ename}: ${event.error.evalue}\n${event.error.traceback.join("\n")}`;
-            break outer;
-          } else if (event.type === "execution_complete") {
-            break outer;
-          }
-        } catch {
-          // skip unparseable lines
-        }
-      }
-    }
-
-    reader.cancel();
-    return { stdout, stderr, errorInfo };
-  } finally {
-    clearTimeout(timer);
   }
+
+  return parseNdjsonOutput(raw);
 }
 
 async function deleteSandbox(baseUrl: string, sandboxId: string): Promise<void> {
