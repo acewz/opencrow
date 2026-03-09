@@ -50,3 +50,5 @@ src/news/scraper/.venv/
 # Playwright MCP
 .playwright-mcp/
 .mcp.json
+
+sandbox

@@ -137,7 +137,7 @@ export const toolsConfigSchema = z.object({
     .object({
       enabled: z.boolean().default(false),
       baseUrl: z.string().default("http://localhost:8080"),
-      defaultTimeout: z.number().int().default(30_000),
+      defaultTimeout: z.number().int().min(1000).max(300_000).default(30_000),
       maxTimeout: z.number().int().default(120_000),
       image: z
         .string()

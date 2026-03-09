@@ -13,6 +13,7 @@ import { createGrepTool } from "./grep";
 import { createGlobTool } from "./glob";
 import { createSelfRestartTool } from "./self-restart";
 import { createCronTriggerTool } from "./cron-trigger";
+import { createSandboxExecuteTool } from "./sandbox-execute";
 import { ToolRouter, createToolRouter } from "./router";
 
 import { createLogger } from "../logger";
@@ -72,6 +73,7 @@ export function createToolRegistry(config: ToolsConfig): ToolRegistry {
     createGlobTool(config),
     createSelfRestartTool(),
     createCronTriggerTool(),
+    createSandboxExecuteTool(config),
   ];
 
   return buildRegistry(tools);
