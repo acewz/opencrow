@@ -56,7 +56,7 @@ async function createSandbox(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       image: { uri: image },
-      timeout: timeoutSec,
+      timeout: Math.max(timeoutSec, 60),
       resourceLimits: { cpu: "500m", memory: "512Mi" },
       entrypoint: ["tail", "-f", "/dev/null"],
     }),
