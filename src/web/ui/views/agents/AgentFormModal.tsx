@@ -227,6 +227,20 @@ export function AgentFormModal({
   const model = watch("model");
   const isOpus = model?.toLowerCase().includes("opus") ?? false;
 
+  /* ── Reset model when provider changes ── */
+  const prevProviderRef = useRef(provider);
+  useEffect(() => {
+    if (prevProviderRef.current === provider) return;
+    prevProviderRef.current = provider;
+
+    const defaults: Record<AiProvider, string> = {
+      "agent-sdk": "claude-sonnet-4-6",
+      alibaba: "qwen3.5-plus",
+      openrouter: "",
+    };
+    setValue("model", defaults[provider] ?? "");
+  }, [provider, setValue]);
+
   /* ── Template application ── */
   const applyTemplate = useCallback((tpl: AgentTemplate) => {
     setSelectedTemplate(tpl.templateId);

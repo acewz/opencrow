@@ -353,6 +353,15 @@ export function createAgentRoutes(deps: WebAppDeps): Hono {
         configHash,
       );
       await reloadRegistry(deps);
+
+      // Restart the agent process so it picks up the new config
+      try {
+        const { sendCommand } = await import("../../process/commands");
+        await sendCommand(`agent:${agentId}`, "restart");
+      } catch {
+        // Non-fatal: process may not be running (e.g. no telegram token)
+      }
+
       return c.json({
         success: true,
         message: `Agent '${agentId}' updated.`,
