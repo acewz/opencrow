@@ -1,1 +1,0 @@
--- task_queue and dead_tasks removed (dropped in 035_drop_task_queue.sql)

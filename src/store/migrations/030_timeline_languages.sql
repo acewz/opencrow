@@ -1,1 +1,0 @@
-ALTER TABLE x_timeline_scrape_jobs ADD COLUMN IF NOT EXISTS languages TEXT DEFAULT NULL;

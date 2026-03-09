@@ -43,15 +43,8 @@ async function runMigrations(
       await database.unsafe(MIGRATIONS[i]!);
     } catch (err) {
       const msg = getErrorMessage(err);
-      // Suppress idempotency errors (already exists / does not exist)
-      const isIdempotent =
-        msg.includes("already exists") ||
-        msg.includes("does not exist") ||
-        msg.includes("duplicate key value violates unique constraint");
-      if (!isIdempotent) {
-        failures.push({ index: i, error: msg });
-        logger.warn("Migration failed (non-fatal)", { migration: i, error: msg });
-      }
+      failures.push({ index: i, error: msg });
+      logger.warn("Migration failed (non-fatal)", { migration: i, error: msg });
     }
   }
 
