@@ -68,6 +68,20 @@ function applyEnvOverrides(
     result.browser = { ...existing, enabled: true };
   }
 
+  // --- sandbox ---
+  if (process.env.OPENCROW_SANDBOX_ENABLED === "true") {
+    const tools = { ...((result.tools ?? {}) as Record<string, unknown>) };
+    const sandbox: Record<string, unknown> = {
+      ...((tools.sandbox ?? {}) as Record<string, unknown>),
+      enabled: true,
+    };
+    if (process.env.OPENCROW_SANDBOX_URL) {
+      sandbox.baseUrl = process.env.OPENCROW_SANDBOX_URL;
+    }
+    tools.sandbox = sandbox;
+    result.tools = tools;
+  }
+
   return result;
 }
 
