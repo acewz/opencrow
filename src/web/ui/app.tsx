@@ -146,6 +146,7 @@ const SCRAPER_TO_TAB: Record<string, Tab> = {
 
 interface FeaturesState {
   readonly enabledScrapers: ReadonlySet<string>;
+  readonly qdrantEnabled: boolean;
   readonly marketEnabled: boolean;
 }
 
@@ -158,6 +159,11 @@ function computeHiddenTabs(features: FeaturesState | null): ReadonlySet<Tab> {
     if (!features.enabledScrapers.has(scraperId)) {
       hidden.add(tabId);
     }
+  }
+
+  // Hide memory tab when Qdrant/RAG is disabled
+  if (!features.qdrantEnabled) {
+    hidden.add("memory");
   }
 
   // Hide markets tab when market feature is disabled
@@ -218,6 +224,7 @@ function App() {
       }>("/api/features");
       setFeatures({
         enabledScrapers: new Set(res.data.scrapers.enabled),
+        qdrantEnabled: res.data.qdrant.enabled,
         marketEnabled: res.data.market.enabled,
       });
     } catch {
