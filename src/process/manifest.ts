@@ -63,13 +63,17 @@ export function resolveManifest(
     const agentEntry = processesConfig.agentProcesses.entry;
     const agentRestartPolicy = processesConfig.agentProcesses.restartPolicy;
 
-    // Spawn a process for each agent that has a telegramBotToken or owns WhatsApp.
+    // Spawn a process for each agent that has a telegramBotToken, owns WhatsApp,
+    // or is the default agent (which uses the shared Telegram bot token).
     for (const agent of agents) {
       const ownsWhatsApp =
         config.channels.whatsapp !== undefined &&
         config.channels.whatsapp.defaultAgent === agent.id;
 
-      if (!agent.telegramBotToken && !ownsWhatsApp) continue;
+      const hasSharedTelegram =
+        agent.default && Boolean(config.channels.telegram.botToken);
+
+      if (!agent.telegramBotToken && !ownsWhatsApp && !hasSharedTelegram) continue;
 
       specs.push({
         name: `agent:${agent.id}`,

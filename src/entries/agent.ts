@@ -56,8 +56,10 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // No fallback — agent must have an explicit telegramBotToken to get Telegram.
-  const telegramToken = resolvedAgent.telegramBotToken;
+  // Default agent falls back to the shared Telegram bot token from config.
+  const telegramToken =
+    resolvedAgent.telegramBotToken ??
+    (isDefault ? config.channels.telegram.botToken : undefined);
 
   const deliveryStore = createDeliveryStore();
 
