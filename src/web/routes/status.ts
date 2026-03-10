@@ -59,7 +59,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
     });
   });
 
-  // Process health (works in both monolith and distributed modes)
+  // Process health
   app.get("/processes", async (c) => {
     // In standalone web mode, proxy to core
     if (deps.coreClient && deps.channels.size === 0) {
@@ -136,7 +136,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
       }
     }
 
-    // In monolith mode, read directly from DB
+    // Fallback: read directly from DB
     try {
       const statuses = await getProcessStatuses();
       return c.json({ data: statuses });
@@ -160,7 +160,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
       }
     }
 
-    // In monolith mode, send command directly
+    // Fallback: send command directly via DB
     try {
       const { sendCommand } = await import("../../process/commands");
       const commandId = await sendCommand(
@@ -218,7 +218,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
     }
 
     return c.json(
-      { error: "Orchestrator not available in monolith mode" },
+      { error: "Orchestrator not available" },
       503,
     );
   });

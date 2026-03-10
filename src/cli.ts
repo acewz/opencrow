@@ -14,7 +14,7 @@ function printHelp(): void {
     "  doctor                          Health check + repair suggestions\n",
   );
   w.write(
-    "  start                           Start in foreground (monolith mode)\n",
+    "  start                           Start in foreground\n",
   );
   w.write("  status                          Show running service status\n");
   w.write(
@@ -47,8 +47,7 @@ async function main(): Promise<void> {
     }
 
     case "start": {
-      // Import and run the monolith gateway directly
-      await import("./gateway.ts");
+      await import("./entries/core.ts");
       break;
     }
 

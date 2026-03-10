@@ -25,7 +25,7 @@ import type { Orchestrator } from "../process/orchestrator";
 export interface InternalApiDeps {
   readonly agentRegistry: AgentRegistry;
   readonly orchestrator?: Orchestrator;
-  // Everything below is optional — only set in monolith mode (gateway.ts)
+  // Everything below is optional — set when the core has live channel connections
   readonly channels?: ReadonlyMap<string, Channel>;
   readonly channelRegistry?: ChannelRegistry;
   readonly channelManager?: ChannelManager;
