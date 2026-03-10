@@ -54,22 +54,23 @@ export default function Settings() {
   const [qdrantSaving, setQdrantSaving] = useState(false);
   const [marketSaving, setMarketSaving] = useState(false);
 
-  const load = useCallback(async () => {
-    try {
-      const res = await apiFetch<{ data: FeaturesResponse }>("/api/features");
-      setFeatures(res.data);
-      setEnabledScrapers(new Set(res.data.scrapers.enabled));
-      setScrapersDirty(false);
-    } catch {
-      toastError("Failed to load feature settings.");
-    } finally {
-      setLoading(false);
-    }
-  }, [toastError]);
-
   useEffect(() => {
-    load();
-  }, [load]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch<{ data: FeaturesResponse }>("/api/features");
+        if (cancelled) return;
+        setFeatures(res.data);
+        setEnabledScrapers(new Set(res.data.scrapers.enabled));
+        setScrapersDirty(false);
+      } catch {
+        if (!cancelled) toastError("Failed to load feature settings.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleScraperToggle(id: string, checked: boolean) {
     setEnabledScrapers((prev) => {
