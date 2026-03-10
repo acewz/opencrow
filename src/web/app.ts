@@ -26,6 +26,7 @@ import { createSignalsRoutes } from "./routes/signals";
 import { createSkillRoutes } from "./routes/skills";
 import { createUsageRoutes } from "./routes/usage";
 import { createToolsRoutes } from "./routes/tools";
+import { createFeaturesRoutes } from "./routes/features";
 import { createSecretsRoutes } from "./routes/secrets";
 import { createRoutingRulesRoutes } from "./routes/routing-rules";
 import { createFailureRoutes } from "./routes/failures";
@@ -346,6 +347,9 @@ export function createWebApp(deps: WebAppDeps): Hono {
 
   const tools = createToolsRoutes();
   app.route("/api", tools);
+
+  const features = createFeaturesRoutes();
+  app.route("/api", features);
 
   const secrets = createSecretsRoutes();
   app.route("/api", secrets);
