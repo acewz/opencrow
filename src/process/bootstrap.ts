@@ -176,8 +176,9 @@ export async function bootstrap(
 
   let memoryManager: MemoryManager | null = null;
   if (!opts.skipMemory && config.memorySearch !== undefined) {
+    const { getSecret } = await import("../config/secrets");
     const embeddingKey =
-      process.env.OPENROUTER_API_KEY ?? process.env.VOYAGE_API_KEY;
+      (await getSecret("OPENROUTER_API_KEY")) ?? (await getSecret("VOYAGE_API_KEY"));
     const embeddingProvider = embeddingKey
       ? createEmbeddingProvider(embeddingKey)
       : null;
@@ -189,7 +190,7 @@ export async function bootstrap(
     }
 
     const memSearch = config.memorySearch!;
-    const qdrantUrl = process.env.QDRANT_URL ?? memSearch.qdrant.url;
+    const qdrantUrl = (await getSecret("QDRANT_URL")) ?? memSearch.qdrant.url;
     const qdrantCollection = memSearch.qdrant.collection;
     const qdrantClient = await createQdrantClient({
       url: qdrantUrl,
@@ -253,12 +254,10 @@ export async function bootstrap(
   }
 
   // Initialize QuestDB read-only client for market query tools
-  if (config.market !== undefined) {
-    try {
-      await initQuestDBReadOnly();
-    } catch {
-      // QuestDB unavailable — market tools will fail gracefully at runtime
-    }
+  try {
+    await initQuestDBReadOnly();
+  } catch {
+    // QuestDB unavailable — market tools will fail gracefully at runtime
   }
 
   // Mutable ref for cronToolConfig — set by caller after cron is initialized
@@ -362,10 +361,10 @@ export async function bootstrap(
       if (extraTools.length > 0) registry = registry.withTools(extraTools);
     }
 
-    if (config.market !== undefined) {
+    {
       const marketTools = createMarketTools(
-        config.market.symbols,
-        config.market.marketTypes,
+        config.market?.symbols ?? [],
+        config.market?.marketTypes ?? [],
       ).filter((t) => allowsTool(t.name));
       if (marketTools.length > 0) registry = registry.withTools(marketTools);
     }

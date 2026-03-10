@@ -24,10 +24,11 @@ const DEFAULT_CONTEXT_WINDOW = 180_000;
 const TOKEN_BUDGET_MULTIPLIER = 1.5;
 const MAX_AGENTIC_HISTORY = 15;
 
-function getApiKey(): string {
-  const key = process.env.OPENROUTER_API_KEY;
+async function getApiKey(): Promise<string> {
+  const { getSecret } = await import("../config/secrets");
+  const key = await getSecret("OPENROUTER_API_KEY");
   if (!key) {
-    throw new Error("OPENROUTER_API_KEY environment variable is not set");
+    throw new Error("OPENROUTER_API_KEY is not set");
   }
   return key;
 }
@@ -110,7 +111,7 @@ function isRetryableError(err: unknown): boolean {
 async function callOpenRouter(
   body: Record<string, unknown>,
 ): Promise<OpenRouterResponse> {
-  const apiKey = getApiKey();
+  const apiKey = await getApiKey();
 
   const res = await fetch(BASE_URL, {
     method: "POST",

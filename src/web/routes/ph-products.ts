@@ -34,7 +34,10 @@ export function createPHProductRoutes(opts: {
   });
 
   app.post("/ph/scrape-now", async (c) => {
-    if (!process.env.PH_API_TOKEN || !process.env.PH_API_SECRET) {
+    const { getSecret } = await import("../../config/secrets");
+    const phToken = await getSecret("PH_API_TOKEN");
+    const phSecret = await getSecret("PH_API_SECRET");
+    if (!phToken || !phSecret) {
       return c.json({ success: false, error: "PH_API_TOKEN and PH_API_SECRET must both be configured" }, 400);
     }
 

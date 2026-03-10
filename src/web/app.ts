@@ -26,7 +26,7 @@ import { createSignalsRoutes } from "./routes/signals";
 import { createSkillRoutes } from "./routes/skills";
 import { createUsageRoutes } from "./routes/usage";
 import { createToolsRoutes } from "./routes/tools";
-import { createFeaturesRoutes } from "./routes/features";
+import { createSecretsRoutes } from "./routes/secrets";
 import { createRoutingRulesRoutes } from "./routes/routing-rules";
 import { createFailureRoutes } from "./routes/failures";
 import { createAppStoreRoutes } from "./routes/appstore";
@@ -95,13 +95,23 @@ export function createWebApp(deps: WebAppDeps): Hono {
 
   app.get("/health", (c) => c.json({ status: "ok", timestamp: Date.now() }));
 
-  const token = process.env.OPENCROW_WEB_TOKEN;
-  if (token) {
-    app.use("/api/*", bearerAuth({ token }));
-    log.info("Web API authentication enabled");
+  // Log auth status at startup (best-effort check against env only)
+  if (process.env.OPENCROW_WEB_TOKEN) {
+    log.info("Web API authentication enabled (env)");
   } else {
-    log.warn("OPENCROW_WEB_TOKEN not set - web API is unauthenticated");
+    log.warn("OPENCROW_WEB_TOKEN not in env — checking DB per request");
   }
+
+  // Auth middleware: resolve token from DB secrets first, then env.
+  // This runs per-request so changes take effect without restart.
+  app.use("/api/*", async (c, next) => {
+    const { getSecret } = await import("../config/secrets");
+    const token = await getSecret("OPENCROW_WEB_TOKEN");
+    if (token) {
+      return bearerAuth({ token })(c, next);
+    }
+    return next();
+  });
 
   const chat = createChatRoutes(deps);
   const settings = createSettingsRoutes(deps);
@@ -337,8 +347,8 @@ export function createWebApp(deps: WebAppDeps): Hono {
   const tools = createToolsRoutes();
   app.route("/api", tools);
 
-  const features = createFeaturesRoutes();
-  app.route("/api", features);
+  const secrets = createSecretsRoutes();
+  app.route("/api", secrets);
 
   {
     const market = createMarketRoutes(

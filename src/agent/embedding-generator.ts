@@ -14,9 +14,11 @@ let embeddingProvider: ReturnType<typeof createEmbeddingProvider> | null = null;
 /**
  * Get or create the embedding provider instance
  */
-function getProvider(): ReturnType<typeof createEmbeddingProvider> | null {
+async function getProvider(): Promise<ReturnType<typeof createEmbeddingProvider> | null> {
   if (!embeddingProvider) {
-    const key = process.env.OPENROUTER_API_KEY ?? process.env.VOYAGE_API_KEY;
+    const { getSecret } = await import("../config/secrets");
+    const key =
+      (await getSecret("OPENROUTER_API_KEY")) ?? (await getSecret("VOYAGE_API_KEY"));
     if (!key) return null;
     embeddingProvider = createEmbeddingProvider(key);
   }
@@ -28,7 +30,7 @@ function getProvider(): ReturnType<typeof createEmbeddingProvider> | null {
  * Uses OpenRouter API (text-embedding-3-small, 512 dimensions)
  */
 export async function generateEmbedding(text: string): Promise<Float32Array> {
-  const provider = getProvider();
+  const provider = await getProvider();
   if (!provider) {
     throw new Error("No embedding API key available");
   }
@@ -47,7 +49,7 @@ export async function generateEmbedding(text: string): Promise<Float32Array> {
 export async function generateEmbeddings(
   texts: string[],
 ): Promise<Float32Array[]> {
-  const provider = getProvider();
+  const provider = await getProvider();
   if (!provider) {
     throw new Error("No embedding API key available");
   }

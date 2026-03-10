@@ -80,14 +80,17 @@ export async function withAlibabaEnv<T>(fn: () => Promise<T>): Promise<T> {
   const origKey = process.env.ANTHROPIC_API_KEY;
   const origUrl = process.env.ANTHROPIC_BASE_URL;
 
-  const alibabaKey = process.env.ALIBABA_API_KEY;
+  const { getSecret } = await import("../config/secrets");
+  const alibabaKey = await getSecret("ALIBABA_API_KEY");
   if (!alibabaKey) {
-    throw new Error("ALIBABA_API_KEY environment variable is not set");
+    throw new Error("ALIBABA_API_KEY is not set");
   }
 
+  const alibabaBaseUrl =
+    (await getSecret("ALIBABA_BASE_URL")) ?? ALIBABA_DEFAULT_BASE_URL;
+
   process.env.ANTHROPIC_API_KEY = alibabaKey;
-  process.env.ANTHROPIC_BASE_URL =
-    process.env.ALIBABA_BASE_URL ?? ALIBABA_DEFAULT_BASE_URL;
+  process.env.ANTHROPIC_BASE_URL = alibabaBaseUrl;
 
   try {
     return await fn();

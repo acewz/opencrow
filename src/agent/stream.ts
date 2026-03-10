@@ -21,10 +21,10 @@ const DEFAULT_CONTEXT_WINDOW = 180_000;
 
 // ─── OpenRouter streaming (SSE) ─────────────────────────────────────────────
 
-function getOpenRouterApiKey(): string {
-  const key = process.env.OPENROUTER_API_KEY;
-  if (!key)
-    throw new Error("OPENROUTER_API_KEY environment variable is not set");
+async function getOpenRouterApiKey(): Promise<string> {
+  const { getSecret } = await import("../config/secrets");
+  const key = await getSecret("OPENROUTER_API_KEY");
+  if (!key) throw new Error("OPENROUTER_API_KEY is not set");
   return key;
 }
 
@@ -72,7 +72,7 @@ function agenticChatStreamOpenRouter(
   return new ReadableStream<StreamEvent>({
     async start(controller) {
       const tools = registry.getOpenAITools();
-      const apiKey = getOpenRouterApiKey();
+      const apiKey = await getOpenRouterApiKey();
       const budget = computeToolResultBudget(DEFAULT_CONTEXT_WINDOW);
       const loopDetector = createLoopDetector();
 
@@ -364,7 +364,7 @@ function simpleStreamOpenRouter(
   return new ReadableStream<StreamEvent>({
     async start(controller) {
       try {
-        const apiKey = getOpenRouterApiKey();
+        const apiKey = await getOpenRouterApiKey();
 
         const res = await fetch(
           "https://openrouter.ai/api/v1/chat/completions",

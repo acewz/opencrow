@@ -48,8 +48,8 @@ async function main(): Promise<void> {
   const channelRegistry = createChannelRegistry();
   registerDefaultPlugins(channelRegistry);
 
-  // Process orchestrator
-  const orchestrator = createOrchestrator(config, agentRegistry);
+  // Process orchestrator — uses merged config so DB overrides (bot tokens, features) are included
+  const orchestrator = createOrchestrator(mergedConfig, agentRegistry);
 
   // Internal API — process management endpoints only
   const internalApp = createInternalApi({

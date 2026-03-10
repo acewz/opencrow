@@ -12,7 +12,8 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
 
   app.get("/status", async (c) => {
     const sessions = await getAllSessions();
-    const authEnabled = Boolean(process.env.OPENCROW_WEB_TOKEN);
+    const { getSecret } = await import("../../config/secrets");
+    const authEnabled = Boolean(await getSecret("OPENCROW_WEB_TOKEN"));
 
     let channelStatus: Record<string, { status: string; type: string }> = {};
     let cronStatus: {
@@ -59,7 +60,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
     });
   });
 
-  // Process health
+  // Process health (works in both distributed and distributed modes)
   app.get("/processes", async (c) => {
     // In standalone web mode, proxy to core
     if (deps.coreClient && deps.channels.size === 0) {
@@ -136,7 +137,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
       }
     }
 
-    // Fallback: read directly from DB
+    // In distributed mode, read directly from DB
     try {
       const statuses = await getProcessStatuses();
       return c.json({ data: statuses });
@@ -160,7 +161,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
       }
     }
 
-    // Fallback: send command directly via DB
+    // In distributed mode, send command directly
     try {
       const { sendCommand } = await import("../../process/commands");
       const commandId = await sendCommand(
@@ -218,7 +219,7 @@ export function createStatusRoutes(deps: WebAppDeps): Hono {
     }
 
     return c.json(
-      { error: "Orchestrator not available" },
+      { error: "Orchestrator not available in distributed mode" },
       503,
     );
   });
