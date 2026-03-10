@@ -51,10 +51,6 @@ export function createSaveIdeaTool(agentId: string, memoryManager?: MemoryManage
           enum: ["mobile_app", "crypto_project", "ai_app", "open_source", "general"],
           description: "Category for the idea.",
         },
-        quality_score: {
-          type: "number",
-          description: "Self-assessed quality score: average of your scoring dimensions (1.0-5.0).",
-        },
       },
       required: ["title", "summary", "reasoning", "category"],
     },
@@ -69,10 +65,8 @@ export function createSaveIdeaTool(agentId: string, memoryManager?: MemoryManage
       const category = requireString(input, "category");
       if (isToolError(category)) return category;
       const sourcesUsed = getString(input, "sources_used", { allowEmpty: true }) ?? "";
-      const rawScore = input.quality_score != null ? Number(input.quality_score) : undefined;
-      const qualityScore = rawScore != null && !isNaN(rawScore)
-        ? Math.min(Math.max(rawScore, 1), 5)
-        : null;
+      // quality_score is always null on save — only set by idea-critic via rate_idea
+      const qualityScore = null;
 
       try {
         const idea = await insertIdea({
