@@ -56,9 +56,9 @@ export default function Settings() {
 
   const load = useCallback(async () => {
     try {
-      const data = await apiFetch<FeaturesResponse>("/api/features");
-      setFeatures(data);
-      setEnabledScrapers(new Set(data.scrapers.enabled));
+      const res = await apiFetch<{ data: FeaturesResponse }>("/api/features");
+      setFeatures(res.data);
+      setEnabledScrapers(new Set(res.data.scrapers.enabled));
       setScrapersDirty(false);
     } catch {
       toastError("Failed to load feature settings.");
