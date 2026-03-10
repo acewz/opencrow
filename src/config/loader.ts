@@ -5,6 +5,7 @@ import {
 } from "./schema";
 import {
   getAllOverrides,
+  getOverride,
   type ConfigOverride,
 } from "../store/config-overrides";
 import {
@@ -97,6 +98,66 @@ function mergeChannelOverrides(
 }
 
 /**
+ * Apply feature toggle overrides from DB:
+ * - features.enabledScrapers → sets scraperProcesses.scraperIds
+ * - features.qdrantEnabled → toggles memorySearch on/off
+ * - features.marketEnabled → toggles market on/off
+ */
+async function mergeFeatureOverrides(
+  base: OpenCrowConfig,
+): Promise<OpenCrowConfig> {
+  const [enabledScrapers, qdrantEnabled, marketEnabled] = await Promise.all([
+    getOverride("features", "enabledScrapers"),
+    getOverride("features", "qdrantEnabled"),
+    getOverride("features", "marketEnabled"),
+  ]);
+
+  let result: Record<string, unknown> = { ...base };
+
+  if (enabledScrapers !== null) {
+    const ids = enabledScrapers as string[];
+    const processes = { ...(base.processes as Record<string, unknown>) };
+    const scraperProcesses = {
+      ...(processes.scraperProcesses as Record<string, unknown>),
+      scraperIds: ids,
+    };
+    result = { ...result, processes: { ...processes, scraperProcesses } };
+  }
+
+  if (qdrantEnabled !== null) {
+    if (Boolean(qdrantEnabled)) {
+      // Restore memorySearch only if it was previously set; keep base value if present
+      // If user enabled it but it was never configured, we leave it as-is from base
+      if (base.memorySearch === undefined) {
+        // Nothing to restore — memorySearch was never configured
+      }
+    } else {
+      // Disable by removing the memorySearch key
+      const { memorySearch: _dropped, ...rest } = result as Record<
+        string,
+        unknown
+      > & { memorySearch?: unknown };
+      result = rest;
+    }
+  }
+
+  if (marketEnabled !== null) {
+    if (Boolean(marketEnabled)) {
+      // Keep market as-is from base when enabling
+    } else {
+      // Disable by removing the market key
+      const { market: _dropped, ...rest } = result as Record<
+        string,
+        unknown
+      > & { market?: unknown };
+      result = rest;
+    }
+  }
+
+  return opencrowConfigSchema.parse(result);
+}
+
+/**
  * Loads config from file and applies both channel AND agent overrides from DB.
  * This is the primary loader for runtime use — file stays read-only.
  */
@@ -105,7 +166,8 @@ export async function loadConfigWithOverrides(): Promise<OpenCrowConfig> {
   const channelOverrides = await getAllOverrides("channels");
   const agentOverrides = await getAgentOverrides();
   const withChannels = mergeChannelOverrides(base, channelOverrides);
-  return mergeAgentOverrides(withChannels, agentOverrides);
+  const withAgents = mergeAgentOverrides(withChannels, agentOverrides);
+  return mergeFeatureOverrides(withAgents);
 }
 
 export type AgentSource = "file" | "file+db" | "db";

@@ -253,10 +253,12 @@ export async function bootstrap(
   }
 
   // Initialize QuestDB read-only client for market query tools
-  try {
-    await initQuestDBReadOnly();
-  } catch {
-    // QuestDB unavailable — market tools will fail gracefully at runtime
+  if (config.market !== undefined) {
+    try {
+      await initQuestDBReadOnly();
+    } catch {
+      // QuestDB unavailable — market tools will fail gracefully at runtime
+    }
   }
 
   // Mutable ref for cronToolConfig — set by caller after cron is initialized
@@ -360,10 +362,10 @@ export async function bootstrap(
       if (extraTools.length > 0) registry = registry.withTools(extraTools);
     }
 
-    {
+    if (config.market !== undefined) {
       const marketTools = createMarketTools(
-        config.market?.symbols ?? [],
-        config.market?.marketTypes ?? [],
+        config.market.symbols,
+        config.market.marketTypes,
       ).filter((t) => allowsTool(t.name));
       if (marketTools.length > 0) registry = registry.withTools(marketTools);
     }

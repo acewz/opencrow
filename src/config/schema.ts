@@ -260,38 +260,12 @@ export const scraperProcessesConfigSchema = z
   .object({
     entry: z.string().default("src/entries/scraper.ts"),
     restartPolicy: z.enum(["always", "on-failure", "never"]).default("always"),
-    scraperIds: z
-      .array(z.string())
-      .default([
-        "hackernews",
-        "reddit",
-        "github",
-        "producthunt",
-        "news",
-        "x-bookmarks",
-        "x-autolike",
-        "x-autofollow",
-        "x-timeline",
-        "appstore",
-        "playstore",
-      ]),
+    scraperIds: z.array(z.string()).default([]),
   })
   .default({
     entry: "src/entries/scraper.ts",
     restartPolicy: "always",
-    scraperIds: [
-      "hackernews",
-      "reddit",
-      "github",
-      "producthunt",
-      "news",
-      "x-bookmarks",
-      "x-autolike",
-      "x-autofollow",
-      "x-timeline",
-      "appstore",
-      "playstore",
-    ],
+    scraperIds: [],
   });
 
 export const processesConfigSchema = z
@@ -309,19 +283,7 @@ export const processesConfigSchema = z
     scraperProcesses: {
       entry: "src/entries/scraper.ts",
       restartPolicy: "always",
-      scraperIds: [
-        "hackernews",
-        "reddit",
-        "github",
-        "producthunt",
-        "news",
-        "x-bookmarks",
-        "x-autolike",
-        "x-autofollow",
-        "x-timeline",
-        "appstore",
-        "playstore",
-      ],
+      scraperIds: [],
     },
   });
 
@@ -382,30 +344,9 @@ export const opencrowConfigSchema = z.object({
     url: "postgres://opencrow:opencrow@127.0.0.1:5432/opencrow",
     max: 20,
   }),
-  memorySearch: memorySearchConfigSchema.default({
-    autoIndex: true,
-    shared: true,
-    vectorWeight: 0.7,
-    textWeight: 0.3,
-    defaultLimit: 5,
-    minScore: 0.3,
-    chunkTokens: 400,
-    chunkOverlap: 80,
-    temporalDecayHalfLifeDays: 30,
-    mmrLambda: 0.7,
-    qdrant: {
-      url: "http://127.0.0.1:6333",
-      collection: "opencrow_memory",
-    },
-  }),
+  memorySearch: memorySearchConfigSchema.optional(),
   observations: observationsConfigSchema,
-  market: marketPipelineConfigSchema.default({
-    questdbIlpUrl: "tcp::addr=127.0.0.1:9009",
-    questdbHttpUrl: "http://127.0.0.1:9000",
-    exchange: "binance",
-    marketTypes: ["spot", "futures"],
-    symbols: ["BTC/USDT", "ETH/USDT", "SOL/USDT"],
-  }),
+  market: marketPipelineConfigSchema.optional(),
   monitor: monitorConfigSchema,
   processes: processesConfigSchema,
   logLevel: z.enum(["debug", "info", "warn", "error"]).default("info"),
