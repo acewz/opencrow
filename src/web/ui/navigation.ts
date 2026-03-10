@@ -23,6 +23,7 @@ import {
   Brain,
   AlertTriangle,
   Smartphone,
+  Settings,
 } from "lucide-react";
 
 export type Tab =
@@ -49,7 +50,8 @@ export type Tab =
   | "routing"
   | "memory"
   | "failures"
-  | "logs";
+  | "logs"
+  | "settings";
 
 export interface NavItem {
   readonly id: Tab;
@@ -69,7 +71,7 @@ export const VALID_TABS = new Set<Tab>([
   "github", "appstore", "playstore",
   "news", "markets", "ideas", "cron",
   "processes", "system", "tools", "agent-metrics", "routing",
-  "memory", "failures", "logs",
+  "memory", "failures", "logs", "settings",
 ]);
 
 export const NAV_SECTIONS: readonly NavSection[] = [
@@ -123,6 +125,7 @@ export const NAV_SECTIONS: readonly NavSection[] = [
       { id: "failures", label: "Failures", Icon: AlertTriangle },
       { id: "system", label: "Metrics", Icon: Activity },
       { id: "logs", label: "Logs", Icon: FileText },
+      { id: "settings", label: "Settings", Icon: Settings },
     ],
   },
 ];

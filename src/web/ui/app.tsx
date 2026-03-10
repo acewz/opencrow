@@ -39,6 +39,7 @@ import Memory from "./views/Memory";
 import Failures from "./views/Failures";
 import AppStore from "./views/AppStore";
 import PlayStore from "./views/PlayStore";
+import Settings from "./views/Settings";
 
 interface StatusResponse {
   uptime: number;
@@ -258,6 +259,7 @@ function App() {
             {tab === "agent-metrics" && <AgentMetrics />}
             {tab === "system" && <SystemMetrics />}
             {tab === "logs" && <Logs />}
+            {tab === "settings" && <Settings />}
           </div>
         </ErrorBoundary>
       </main>
