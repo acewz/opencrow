@@ -42,6 +42,15 @@ export function createGithubRoutes(opts: {
     return c.json({ success: false, error: "GitHub scraper not available" }, 503);
   });
 
+  app.post("/github/search-scrape-now", async (c) => {
+    log.info("Manual GitHub Search scrape triggered");
+    if (opts.coreClient) {
+      const result = await opts.coreClient.scraperAction("github-search", "scrape-now");
+      return c.json({ success: true, data: result.data });
+    }
+    return c.json({ success: false, error: "GitHub Search scraper not available" }, 503);
+  });
+
   app.post("/github/backfill-rag", async (c) => {
     log.info("GitHub RAG backfill triggered");
     if (opts.scraper) {
