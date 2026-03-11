@@ -6,6 +6,7 @@ import { createWebApp } from "./web/app";
 import { createBookmarkProcessor } from "./sources/x/bookmarks/processor";
 import { createAutolikeProcessor } from "./sources/x/interactions/processor";
 import { createAutofollowProcessor } from "./sources/x/follow/processor";
+import { createTimelineScrapeProcessor } from "./sources/x/timeline/processor";
 import { createProcessSupervisor } from "./process/supervisor";
 import { chat } from "./agent/chat";
 import {
@@ -65,6 +66,9 @@ async function main(): Promise<void> {
   const bookmarkProcessor = createBookmarkProcessor();
   const autolikeProcessor = createAutolikeProcessor();
   const autofollowProcessor = createAutofollowProcessor();
+  const timelineScrapeProcessor = createTimelineScrapeProcessor({
+    memoryManager: ctx.memoryManager ?? undefined,
+  });
 
   const mergedConfig = ctx.config;
 
@@ -82,6 +86,7 @@ async function main(): Promise<void> {
     bookmarkProcessor,
     autolikeProcessor,
     autofollowProcessor,
+    timelineScrapeProcessor,
     marketSymbols: config.market?.symbols ?? [],
     marketTypes: config.market?.marketTypes ?? [],
   });
