@@ -108,11 +108,12 @@ export function TimelineTab({ accountId }: TimelineTabProps) {
   useAutoRefresh(isRunning, loadData);
 
   function buildSources(): Record<string, unknown> {
+    const srcs = [
+      ...(homeEnabled ? ["home"] : []),
+      ...(topEnabled ? ["top_posts"] : []),
+    ].join(",");
     return {
-      sources: {
-        home: homeEnabled,
-        top: topEnabled,
-      },
+      sources: srcs || "home",
       languages: languages.trim() || null,
     };
   }
