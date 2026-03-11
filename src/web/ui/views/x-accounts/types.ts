@@ -15,7 +15,7 @@ export interface XAccount {
   updated_at: number;
 }
 
-export type FeatureTab = 'overview' | 'auto-likes' | 'auto-follow' | 'bookmarks' | 'timeline';
+export type FeatureTab = 'timeline' | 'auto-likes' | 'auto-follow' | 'bookmarks';
 
 export interface AccountsResponse {
   success: boolean;
