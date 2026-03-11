@@ -6,7 +6,6 @@ import { AutoLikesTab } from "./AutoLikesTab";
 import { AutoFollowTab } from "./AutoFollowTab";
 import { BookmarksTab } from "./BookmarksTab";
 import { TimelineTab } from "./TimelineTab";
-import { SettingsTab } from "./SettingsTab";
 import type { XAccount, FeatureTab } from "./types";
 
 interface FeatureTabDef {
@@ -20,7 +19,6 @@ const FEATURE_TABS: ReadonlyArray<FeatureTabDef> = [
   { id: "auto-follow", label: "Auto Follow" },
   { id: "bookmarks", label: "Bookmarks" },
   { id: "timeline", label: "Timeline" },
-  { id: "settings", label: "Settings" },
 ];
 
 interface AccountDashboardProps {
@@ -89,9 +87,6 @@ export function AccountDashboard({
         )}
         {activeTab === "timeline" && (
           <TimelineTab accountId={account.id} />
-        )}
-        {activeTab === "settings" && (
-          <SettingsTab account={account} onSaved={onUpdate} />
         )}
       </div>
     </div>
