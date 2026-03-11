@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { apiFetch } from "../api";
 import { PageHeader, LoadingState, EmptyState, Button } from "../components";
 import { formatTime, parseJsonArray } from "../lib/format";
+import { PHCredentials } from "./ph-accounts/PHCredentials";
 
 const PH_COLOR = "#da552f";
 
@@ -270,6 +271,8 @@ export default function ProductHunt() {
           </div>
         }
       />
+
+      <PHCredentials />
 
       {error && (
         <div className="mb-4 px-4 py-2 bg-danger-subtle text-danger rounded-lg text-sm">
