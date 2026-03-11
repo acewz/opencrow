@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "../api";
 import { formatTime, formatNumber } from "../lib/format";
+import { cn } from "../lib/cn";
 import { PageHeader, LoadingState, EmptyState, Button } from "../components";
 import { useToast } from "../components/Toast";
 import { Settings2 } from "lucide-react";
@@ -54,6 +55,7 @@ function getDefaults(scraperId: string): Record<string, number> {
   return Object.fromEntries(fields.map((f) => [f.key, f.defaultValue]));
 }
 
+type Tab = "trending" | "search";
 type SortKey = "stars_today" | "stars" | "forks" | "newest";
 type TrendingPeriod = "" | "daily" | "weekly";
 
@@ -196,8 +198,7 @@ function RepoList({ repos }: { readonly repos: readonly GithubRepo[] }) {
                 <span
                   className="text-xs bg-bg-2 px-2 py-0.5 rounded-sm shrink-0 font-medium"
                   style={{
-                    color:
-                      langColors[repo.language] ?? "var(--color-accent)",
+                    color: langColors[repo.language] ?? "var(--color-accent)",
                   }}
                 >
                   {repo.language}
@@ -237,41 +238,31 @@ function RepoList({ repos }: { readonly repos: readonly GithubRepo[] }) {
   );
 }
 
-/* ── Section header with config gear ── */
-function SectionHeader({
-  title,
-  count,
+/* ── Tab config + controls header ── */
+function TabHeader({
   scraperId,
   children,
 }: {
-  readonly title: string;
-  readonly count: number;
   readonly scraperId: string;
   readonly children?: React.ReactNode;
 }) {
   const [configOpen, setConfigOpen] = useState(false);
 
   return (
-    <div className="mt-8 first:mt-0">
+    <div className="mb-5">
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-base font-semibold text-strong">
-            {title}{" "}
-            <span className="text-sm font-normal text-muted">({count})</span>
-          </h2>
-          <button
-            type="button"
-            title="Configure"
-            onClick={() => setConfigOpen((p) => !p)}
-            className={`p-1 rounded-md transition-colors ${
-              configOpen
-                ? "text-accent bg-accent-subtle"
-                : "text-muted hover:text-foreground hover:bg-bg-2"
-            }`}
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          type="button"
+          title="Configure"
+          onClick={() => setConfigOpen((p) => !p)}
+          className={`p-1 rounded-md transition-colors ${
+            configOpen
+              ? "text-accent bg-accent-subtle"
+              : "text-muted hover:text-foreground hover:bg-bg-2"
+          }`}
+        >
+          <Settings2 className="w-3.5 h-3.5" />
+        </button>
         {children && <div className="flex gap-3 flex-wrap">{children}</div>}
       </div>
       {configOpen && (
@@ -314,7 +305,9 @@ export default function GitHub() {
   const [repos, setRepos] = useState<GithubRepo[]>([]);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [scraping, setScraping] = useState(false);
+  const [scrapingTrending, setScrapingTrending] = useState(false);
+  const [scrapingSearch, setScrapingSearch] = useState(false);
+  const [tab, setTab] = useState<Tab>("trending");
 
   // Trending filters
   const [trendingSort, setTrendingSort] = useState<SortKey>("stars_today");
@@ -348,15 +341,27 @@ export default function GitHub() {
     }
   }
 
-  async function handleScrapeNow() {
-    setScraping(true);
+  async function handleScrapeTrending() {
+    setScrapingTrending(true);
     try {
       await apiFetch("/api/github/scrape-now", { method: "POST" });
       await fetchAll();
     } catch {
       // ignore
     } finally {
-      setScraping(false);
+      setScrapingTrending(false);
+    }
+  }
+
+  async function handleScrapeSearch() {
+    setScrapingSearch(true);
+    try {
+      await apiFetch("/api/github/search-scrape-now", { method: "POST" });
+      await fetchAll();
+    } catch {
+      // ignore
+    } finally {
+      setScrapingSearch(false);
     }
   }
 
@@ -396,86 +401,108 @@ export default function GitHub() {
           `${stats.total_repos} repos | ${stats.languages} languages | Last updated: ${formatTime(stats.last_updated_at)}`
         }
         actions={
-          <Button
-            size="sm"
-            onClick={handleScrapeNow}
-            loading={scraping}
-          >
-            Scrape Now
-          </Button>
+          tab === "trending" ? (
+            <Button size="sm" onClick={handleScrapeTrending} loading={scrapingTrending}>
+              Scrape Trending
+            </Button>
+          ) : (
+            <Button size="sm" onClick={handleScrapeSearch} loading={scrapingSearch}>
+              Scrape Search
+            </Button>
+          )
         }
       />
 
-      {/* ── Trending Section ── */}
-      <SectionHeader
-        title="Trending"
-        count={trendingFiltered.length}
-        scraperId="github"
-      >
-        <select
-          value={trendingSort}
-          onChange={(e) => setTrendingSort(e.target.value as SortKey)}
-          className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
-        >
-          <option value="stars_today">Hottest</option>
-          <option value="stars">Most Stars</option>
-          <option value="forks">Most Forks</option>
-          <option value="newest">Newest</option>
-        </select>
+      {/* Tab switcher */}
+      <div className="flex gap-1 mb-5 border-b border-border">
+        {(["trending", "search"] as const).map((t) => (
+          <button
+            key={t}
+            onClick={() => { setTab(t); }}
+            className={cn(
+              "px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors bg-transparent cursor-pointer",
+              tab === t
+                ? "border-accent text-accent"
+                : "border-transparent text-muted hover:text-foreground",
+            )}
+          >
+            {t === "trending"
+              ? `Trending (${trendingRepos.length})`
+              : `Search (${searchRepos.length})`}
+          </button>
+        ))}
+      </div>
 
-        <select
-          value={trendingPeriod}
-          onChange={(e) => setTrendingPeriod(e.target.value as TrendingPeriod)}
-          className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
-        >
-          <option value="">Daily + Weekly</option>
-          <option value="daily">Today</option>
-          <option value="weekly">This week</option>
-        </select>
+      {/* ── Trending Tab ── */}
+      {tab === "trending" && (
+        <>
+          <TabHeader scraperId="github">
+            <select
+              value={trendingSort}
+              onChange={(e) => setTrendingSort(e.target.value as SortKey)}
+              className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
+            >
+              <option value="stars_today">Hottest</option>
+              <option value="stars">Most Stars</option>
+              <option value="forks">Most Forks</option>
+              <option value="newest">Newest</option>
+            </select>
 
-        <select
-          value={trendingLang}
-          onChange={(e) => setTrendingLang(e.target.value)}
-          className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
-        >
-          <option value="">All languages</option>
-          {trendingLanguages.map((lang) => (
-            <option key={lang} value={lang}>{lang}</option>
-          ))}
-        </select>
-      </SectionHeader>
+            <select
+              value={trendingPeriod}
+              onChange={(e) => setTrendingPeriod(e.target.value as TrendingPeriod)}
+              className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
+            >
+              <option value="">Daily + Weekly</option>
+              <option value="daily">Today</option>
+              <option value="weekly">This week</option>
+            </select>
 
-      <RepoList repos={trendingFiltered} />
+            <select
+              value={trendingLang}
+              onChange={(e) => setTrendingLang(e.target.value)}
+              className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
+            >
+              <option value="">All languages</option>
+              {trendingLanguages.map((lang) => (
+                <option key={lang} value={lang}>{lang}</option>
+              ))}
+            </select>
+          </TabHeader>
 
-      {/* ── Search Section ── */}
-      <SectionHeader
-        title="Search"
-        count={searchFiltered.length}
-        scraperId="github-search"
-      >
-        <select
-          value={searchSort}
-          onChange={(e) => setSearchSort(e.target.value as SortKey)}
-          className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
-        >
-          <option value="stars">Most Stars</option>
-          <option value="forks">Most Forks</option>
-          <option value="newest">Newest</option>
-        </select>
+          <RepoList repos={trendingFiltered} />
+        </>
+      )}
 
-        <select
-          value={searchLang}
-          onChange={(e) => setSearchLang(e.target.value)}
-          className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
-        >
-          <option value="">All languages</option>
-          {searchLanguages.map((lang) => (
-            <option key={lang} value={lang}>{lang}</option>
-          ))}
-        </select>
-      </SectionHeader>
+      {/* ── Search Tab ── */}
+      {tab === "search" && (
+        <>
+          <TabHeader scraperId="github-search">
+            <select
+              value={searchSort}
+              onChange={(e) => setSearchSort(e.target.value as SortKey)}
+              className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
+            >
+              <option value="stars">Most Stars</option>
+              <option value="forks">Most Forks</option>
+              <option value="newest">Newest</option>
+            </select>
 
-      <RepoList repos={searchFiltered} />
+            <select
+              value={searchLang}
+              onChange={(e) => setSearchLang(e.target.value)}
+              className="px-3 py-1.5 text-xs bg-bg-1 text-strong border border-border rounded-md outline-none"
+            >
+              <option value="">All languages</option>
+              {searchLanguages.map((lang) => (
+                <option key={lang} value={lang}>{lang}</option>
+              ))}
+            </select>
+          </TabHeader>
+
+          <RepoList repos={searchFiltered} />
+        </>
+      )}
     </div>
   );
 }
