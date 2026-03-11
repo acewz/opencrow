@@ -81,21 +81,22 @@ async function main(): Promise<void> {
   // Cron store for CRUD — always available in web process (scheduler runs in cron process)
   const cronStore = createCronStore();
 
-  // Memory manager for search routes
+  // Memory manager for search routes + RAG backfill
+  // Initialize if config.memorySearch is set, or if embedding key is available (auto-init with defaults)
   let memoryManager: MemoryManager | undefined;
-  if (config.memorySearch !== undefined) {
-    const embeddingKey =
-      process.env.OPENROUTER_API_KEY ?? process.env.VOYAGE_API_KEY;
+  const embeddingKey =
+    process.env.OPENROUTER_API_KEY ?? process.env.VOYAGE_API_KEY;
+  const memSearch = config.memorySearch;
+  if (memSearch !== undefined || embeddingKey) {
     const embeddingProvider = embeddingKey
       ? createEmbeddingProvider(embeddingKey)
       : null;
 
-    const memSearch = config.memorySearch!;
-    const qdrantUrl = process.env.QDRANT_URL ?? memSearch.qdrant.url;
-    const qdrantCollection = memSearch.qdrant.collection;
+    const qdrantUrl = process.env.QDRANT_URL ?? memSearch?.qdrant.url ?? "http://127.0.0.1:6333";
+    const qdrantCollection = memSearch?.qdrant.collection ?? "opencrow_memory";
     const qdrantClient = await createQdrantClient({
       url: qdrantUrl,
-      apiKey: memSearch.qdrant.apiKey,
+      apiKey: memSearch?.qdrant.apiKey,
     });
 
     if (qdrantClient.available) {
@@ -106,12 +107,12 @@ async function main(): Promise<void> {
       embeddingProvider,
       qdrantClient,
       qdrantCollection,
-      shared: memSearch.shared,
-      defaultLimit: memSearch.defaultLimit,
-      minScore: memSearch.minScore,
-      vectorWeight: memSearch.vectorWeight,
-      textWeight: memSearch.textWeight,
-      mmrLambda: memSearch.mmrLambda,
+      shared: memSearch?.shared ?? true,
+      defaultLimit: memSearch?.defaultLimit ?? 5,
+      minScore: memSearch?.minScore ?? 0.3,
+      vectorWeight: memSearch?.vectorWeight ?? 0.7,
+      textWeight: memSearch?.textWeight ?? 0.3,
+      mmrLambda: memSearch?.mmrLambda ?? 0.7,
     });
     log.info("Memory search initialized");
   }
