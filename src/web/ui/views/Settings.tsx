@@ -9,12 +9,52 @@ import {
   ChevronRight,
   Circle,
   Settings as SettingsIcon,
+  Settings2,
 } from "lucide-react";
 
 interface ScraperMeta {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+}
+
+interface FieldDef {
+  readonly key: string;
+  readonly label: string;
+  readonly description: string;
+  readonly min: number;
+  readonly max: number;
+  readonly defaultValue: number;
+}
+
+const SCRAPER_FIELDS: Readonly<Record<string, readonly FieldDef[]>> = {
+  hackernews: [
+    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 1, max: 1440, defaultValue: 10 },
+    { key: "maxStories", label: "Max stories", description: "Number of top stories to fetch", min: 10, max: 200, defaultValue: 60 },
+    { key: "commentLimit", label: "Comments per story", description: "Top comments to fetch per story", min: 0, max: 10, defaultValue: 3 },
+  ],
+  "github-search": [
+    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 1, max: 1440, defaultValue: 360 },
+    { key: "minStars", label: "Minimum stars", description: "Only include repos with at least this many stars", min: 1, max: 100000, defaultValue: 500 },
+    { key: "pushedWithinDays", label: "Pushed within days", description: "Only include repos pushed within this many days", min: 1, max: 90, defaultValue: 7 },
+    { key: "maxPages", label: "Max pages", description: "Max pages to fetch (30 repos per page)", min: 1, max: 10, defaultValue: 4 },
+  ],
+  github: [
+    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 10, max: 1440, defaultValue: 720 },
+  ],
+  reddit: [
+    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 5, max: 1440, defaultValue: 30 },
+  ],
+  producthunt: [
+    { key: "intervalMinutes", label: "Scrape interval (min)", description: "How often to scrape", min: 5, max: 1440, defaultValue: 10 },
+  ],
+};
+
+const CONFIGURABLE_SCRAPERS = new Set(Object.keys(SCRAPER_FIELDS));
+
+function getDefaults(scraperId: string): Record<string, number> {
+  const fields = SCRAPER_FIELDS[scraperId] ?? [];
+  return Object.fromEntries(fields.map((f) => [f.key, f.defaultValue]));
 }
 
 interface FeaturesResponse {
@@ -99,6 +139,127 @@ function FeatureCard({
   );
 }
 
+/* ── Config field ── */
+function ConfigField({
+  label,
+  description,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  readonly label: string;
+  readonly description: string;
+  readonly value: number;
+  readonly min: number;
+  readonly max: number;
+  readonly onChange: (v: number) => void;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="min-w-0">
+        <div className="text-xs font-medium text-foreground">{label}</div>
+        <div className="text-xs text-muted mt-0.5">{description}</div>
+      </div>
+      <input
+        type="number"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(e) => {
+          const n = parseInt(e.target.value, 10);
+          if (!isNaN(n)) onChange(n);
+        }}
+        className="w-20 shrink-0 bg-bg-2 border border-border rounded-md px-2 py-1 text-xs text-foreground text-right focus:outline-none focus:border-accent"
+      />
+    </div>
+  );
+}
+
+/* ── Generic scraper config form ── */
+function ScraperConfigForm({
+  scraperId,
+  onClose,
+}: {
+  readonly scraperId: string;
+  readonly onClose: () => void;
+}) {
+  const { success, error: toastError } = useToast();
+  const fields = SCRAPER_FIELDS[scraperId] ?? [];
+  const [config, setConfig] = useState<Record<string, number>>(getDefaults(scraperId));
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await apiFetch<{ data: Record<string, number> }>(
+          `/api/features/scraper-config/${scraperId}`,
+        );
+        if (!cancelled) setConfig(res.data);
+      } catch {
+        if (!cancelled) toastError("Failed to load scraper config.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [scraperId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      await apiFetch(`/api/features/scraper-config/${scraperId}`, {
+        method: "PUT",
+        body: JSON.stringify(config),
+      });
+      success("Scraper config saved.");
+      onClose();
+    } catch {
+      toastError("Failed to save scraper config.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 mx-0 bg-bg-2 border border-border rounded-lg p-3">
+      {loading ? (
+        <p className="text-xs text-muted py-1">Loading config…</p>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {fields.map((f) => (
+            <ConfigField
+              key={f.key}
+              label={f.label}
+              description={f.description}
+              value={config[f.key] ?? f.defaultValue}
+              min={f.min}
+              max={f.max}
+              onChange={(v) => setConfig((prev) => ({ ...prev, [f.key]: v }))}
+            />
+          ))}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={onClose} disabled={saving}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSave}
+              disabled={saving}
+              loading={saving}
+            >
+              Save
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ── Scrapers section (expandable) ── */
 function ScrapersSection({
   scrapers,
@@ -116,8 +277,14 @@ function ScrapersSection({
   readonly onSave: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [openConfigId, setOpenConfigId] = useState<string | null>(null);
   const enabledCount = enabledScrapers.size;
   const totalCount = scrapers.length;
+
+  function handleGearClick(e: React.MouseEvent, scraperId: string) {
+    e.stopPropagation();
+    setOpenConfigId((prev) => (prev === scraperId ? null : scraperId));
+  }
 
   return (
     <div className="bg-bg-1 border border-border rounded-xl transition-all duration-200 hover:border-border-hover">
@@ -166,31 +333,57 @@ function ScrapersSection({
             </p>
           ) : (
             <div className="flex flex-col">
-              {scrapers.map((scraper, i) => (
-                <div
-                  key={scraper.id}
-                  className={`flex items-center justify-between py-3 ${
-                    i < scrapers.length - 1
-                      ? "border-b border-border"
-                      : ""
-                  }`}
-                >
-                  <div className="min-w-0 pr-4">
-                    <div className="text-sm font-medium text-foreground">
-                      {scraper.name}
-                    </div>
-                    {scraper.description && (
-                      <div className="text-xs text-muted mt-0.5">
-                        {scraper.description}
+              {scrapers.map((scraper, i) => {
+                const isConfigurable = CONFIGURABLE_SCRAPERS.has(scraper.id);
+                const isConfigOpen = openConfigId === scraper.id;
+                const isLast = i === scrapers.length - 1;
+                return (
+                  <div key={scraper.id}>
+                    <div
+                      className={`flex items-center justify-between py-3 ${
+                        !isLast || isConfigOpen ? "border-b border-border" : ""
+                      }`}
+                    >
+                      <div className="min-w-0 pr-4">
+                        <div className="text-sm font-medium text-foreground">
+                          {scraper.name}
+                        </div>
+                        {scraper.description && (
+                          <div className="text-xs text-muted mt-0.5">
+                            {scraper.description}
+                          </div>
+                        )}
                       </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isConfigurable && (
+                          <button
+                            type="button"
+                            title="Configure"
+                            onClick={(e) => handleGearClick(e, scraper.id)}
+                            className={`p-1 rounded-md transition-colors ${
+                              isConfigOpen
+                                ? "text-accent bg-accent-subtle"
+                                : "text-muted hover:text-foreground hover:bg-bg-2"
+                            }`}
+                          >
+                            <Settings2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <Toggle
+                          checked={enabledScrapers.has(scraper.id)}
+                          onChange={(checked) => onToggle(scraper.id, checked)}
+                        />
+                      </div>
+                    </div>
+                    {isConfigOpen && (
+                      <ScraperConfigForm
+                        scraperId={scraper.id}
+                        onClose={() => setOpenConfigId(null)}
+                      />
                     )}
                   </div>
-                  <Toggle
-                    checked={enabledScrapers.has(scraper.id)}
-                    onChange={(checked) => onToggle(scraper.id, checked)}
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
