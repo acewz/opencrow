@@ -29,12 +29,14 @@ interface StatsData {
 }
 
 interface GithubSearchConfig {
+  readonly intervalMinutes: number;
   readonly minStars: number;
   readonly pushedWithinDays: number;
   readonly maxPages: number;
 }
 
 const SEARCH_CONFIG_DEFAULTS: GithubSearchConfig = {
+  intervalMinutes: 360,
   minStars: 500,
   pushedWithinDays: 7,
   maxPages: 4,
@@ -153,6 +155,7 @@ function SearchConfigPanel() {
             <p className="text-xs text-muted">Loading...</p>
           ) : (
             <>
+              {field("Scrape interval (min)", "intervalMinutes", 1, 1440, "How often to scrape")}
               {field("Minimum stars", "minStars", 1, 100000, "Only include repos with at least this many stars")}
               {field("Pushed within days", "pushedWithinDays", 1, 90, "Only include repos pushed within this many days")}
               {field("Max pages", "maxPages", 1, 10, "Max pages to fetch per scrape run (30 repos per page)")}
@@ -180,8 +183,6 @@ export default function GitHub() {
   const [stats, setStats] = useState<StatsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
-  const [backfilling, setBackfilling] = useState(false);
-  const [backfillResult, setBackfillResult] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<SortKey>("stars_today");
   const [filterLang, setFilterLang] = useState("");
   const [filterPeriod, setFilterPeriod] = useState<PeriodFilter>("");
@@ -221,24 +222,6 @@ export default function GitHub() {
     }
   }
 
-  async function handleBackfillRag() {
-    setBackfilling(true);
-    setBackfillResult(null);
-    try {
-      const res = await apiFetch<{ success: boolean; data: { indexed: number } }>(
-        "/api/github/backfill-rag",
-        { method: "POST" },
-      );
-      if (res.success) {
-        setBackfillResult(`Indexed ${res.data.indexed} repos`);
-      }
-    } catch {
-      setBackfillResult("Backfill failed");
-    } finally {
-      setBackfilling(false);
-    }
-  }
-
   const languages = Array.from(
     new Set(repos.map((r) => r.language).filter(Boolean)),
   ).sort();
@@ -274,26 +257,13 @@ export default function GitHub() {
           `${stats.total_repos} repos | ${stats.languages} languages | Last updated: ${formatTime(stats.last_updated_at)}`
         }
         actions={
-          <div className="flex items-center gap-2">
-            {backfillResult && (
-              <span className="text-xs text-muted">{backfillResult}</span>
-            )}
-            <Button
-              size="sm"
-              variant="secondary"
-              onClick={handleBackfillRag}
-              loading={backfilling}
-            >
-              Backfill RAG
-            </Button>
-            <Button
-              size="sm"
-              onClick={handleScrapeNow}
-              loading={scraping}
-            >
-              Scrape Now
-            </Button>
-          </div>
+          <Button
+            size="sm"
+            onClick={handleScrapeNow}
+            loading={scraping}
+          >
+            Scrape Now
+          </Button>
         }
       />
 
