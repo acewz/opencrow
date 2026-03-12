@@ -25,6 +25,7 @@ export interface Workflow {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  readonly enabled: boolean;
   readonly nodes: readonly WorkflowNode[];
   readonly edges: readonly WorkflowEdge[];
   readonly viewport: WorkflowViewport;
@@ -37,6 +38,7 @@ function rowToWorkflow(r: Record<string, unknown>): Workflow {
     id: r.id as string,
     name: r.name as string,
     description: r.description as string,
+    enabled: r.enabled === true || r.enabled === 1,
     nodes: (r.nodes_json as WorkflowNode[]) ?? [],
     edges: (r.edges_json as WorkflowEdge[]) ?? [],
     viewport: (r.viewport_json as WorkflowViewport) ?? { x: 0, y: 0, zoom: 1 },
@@ -66,6 +68,7 @@ export async function getWorkflowById(id: string): Promise<Workflow | null> {
 export interface CreateWorkflowInput {
   readonly name: string;
   readonly description?: string;
+  readonly enabled?: boolean;
   readonly nodes?: readonly WorkflowNode[];
   readonly edges?: readonly WorkflowEdge[];
   readonly viewport?: WorkflowViewport;
@@ -80,11 +83,12 @@ export async function createWorkflow(
   const edges = JSON.stringify(input.edges ?? []);
   const viewport = JSON.stringify(input.viewport ?? { x: 0, y: 0, zoom: 1 });
   const description = input.description ?? "";
+  const enabled = input.enabled ?? false;
 
   const rows = (await db`INSERT INTO workflows (
-    name, description, nodes_json, edges_json, viewport_json, created_at, updated_at
+    name, description, enabled, nodes_json, edges_json, viewport_json, created_at, updated_at
   ) VALUES (
-    ${input.name}, ${description}, ${nodes}::jsonb, ${edges}::jsonb, ${viewport}::jsonb, ${now}, ${now}
+    ${input.name}, ${description}, ${enabled}, ${nodes}::jsonb, ${edges}::jsonb, ${viewport}::jsonb, ${now}, ${now}
   ) RETURNING *`) as Array<Record<string, unknown>>;
 
   return rowToWorkflow(rows[0]!);
@@ -93,6 +97,7 @@ export async function createWorkflow(
 export interface UpdateWorkflowInput {
   readonly name?: string;
   readonly description?: string;
+  readonly enabled?: boolean;
   readonly nodes?: readonly WorkflowNode[];
   readonly edges?: readonly WorkflowEdge[];
   readonly viewport?: WorkflowViewport;
@@ -113,6 +118,8 @@ export async function updateWorkflow(
   const name = input.name !== undefined ? input.name : existing.name;
   const description =
     input.description !== undefined ? input.description : existing.description;
+  const enabled =
+    input.enabled !== undefined ? input.enabled : existing.enabled;
   const nodes = JSON.stringify(
     input.nodes !== undefined ? input.nodes : existing.nodes,
   );
@@ -128,6 +135,7 @@ export async function updateWorkflow(
     SET
       name         = ${name},
       description  = ${description},
+      enabled      = ${enabled},
       nodes_json   = ${nodes}::jsonb,
       edges_json   = ${edges}::jsonb,
       viewport_json = ${viewport}::jsonb,
@@ -339,56 +347,57 @@ export async function updateStep(
 ): Promise<WorkflowExecutionStep | null> {
   const db = getDb();
 
-  const status = input.status;
-  const stepInput =
-    input.input !== undefined ? JSON.stringify(input.input) : null;
-  const stepOutput =
-    input.output !== undefined ? JSON.stringify(input.output) : null;
-  const error = input.error !== undefined ? input.error : null;
-  const startedAt = input.startedAt !== undefined ? input.startedAt : null;
-  const finishedAt = input.finishedAt !== undefined ? input.finishedAt : null;
+  const existing = await getStepById(id);
+  if (!existing) return null;
 
-  // Build individual SET fragments to avoid db.json() which doesn't exist on Bun.sql
-  // We do separate updates when JSONB fields are provided to use ::jsonb cast
-  const hasJsonInput = stepInput !== null;
-  const hasJsonOutput = stepOutput !== null;
+  // Use explicit key-presence checks so callers can write null values.
+  // Falling back to the existing row value prevents inadvertent overwrites.
+  const status = "status" in input ? (input.status ?? existing.status) : existing.status;
+  const error = "error" in input ? input.error ?? null : existing.error;
+  const startedAt = "startedAt" in input ? input.startedAt ?? null : existing.startedAt;
+  const finishedAt = "finishedAt" in input ? input.finishedAt ?? null : existing.finishedAt;
+
+  const hasInput = "input" in input;
+  const hasOutput = "output" in input;
+  const stepInput = hasInput ? JSON.stringify(input.input) : null;
+  const stepOutput = hasOutput ? JSON.stringify(input.output) : null;
 
   let rows: Array<Record<string, unknown>>;
 
-  if (hasJsonInput && hasJsonOutput) {
+  if (hasInput && hasOutput) {
     rows = (await db`
       UPDATE workflow_execution_steps
       SET
-        status      = COALESCE(${status ?? null}, status),
+        status      = ${status},
         input       = ${stepInput}::jsonb,
         output      = ${stepOutput}::jsonb,
-        error       = COALESCE(${error}, error),
-        started_at  = COALESCE(${startedAt}, started_at),
-        finished_at = COALESCE(${finishedAt}, finished_at)
+        error       = ${error},
+        started_at  = ${startedAt},
+        finished_at = ${finishedAt}
       WHERE id = ${id}
       RETURNING *
     `) as Array<Record<string, unknown>>;
-  } else if (hasJsonInput) {
+  } else if (hasInput) {
     rows = (await db`
       UPDATE workflow_execution_steps
       SET
-        status      = COALESCE(${status ?? null}, status),
+        status      = ${status},
         input       = ${stepInput}::jsonb,
-        error       = COALESCE(${error}, error),
-        started_at  = COALESCE(${startedAt}, started_at),
-        finished_at = COALESCE(${finishedAt}, finished_at)
+        error       = ${error},
+        started_at  = ${startedAt},
+        finished_at = ${finishedAt}
       WHERE id = ${id}
       RETURNING *
     `) as Array<Record<string, unknown>>;
-  } else if (hasJsonOutput) {
+  } else if (hasOutput) {
     rows = (await db`
       UPDATE workflow_execution_steps
       SET
-        status      = COALESCE(${status ?? null}, status),
+        status      = ${status},
         output      = ${stepOutput}::jsonb,
-        error       = COALESCE(${error}, error),
-        started_at  = COALESCE(${startedAt}, started_at),
-        finished_at = COALESCE(${finishedAt}, finished_at)
+        error       = ${error},
+        started_at  = ${startedAt},
+        finished_at = ${finishedAt}
       WHERE id = ${id}
       RETURNING *
     `) as Array<Record<string, unknown>>;
@@ -396,15 +405,25 @@ export async function updateStep(
     rows = (await db`
       UPDATE workflow_execution_steps
       SET
-        status      = COALESCE(${status ?? null}, status),
-        error       = COALESCE(${error}, error),
-        started_at  = COALESCE(${startedAt}, started_at),
-        finished_at = COALESCE(${finishedAt}, finished_at)
+        status      = ${status},
+        error       = ${error},
+        started_at  = ${startedAt},
+        finished_at = ${finishedAt}
       WHERE id = ${id}
       RETURNING *
     `) as Array<Record<string, unknown>>;
   }
 
+  return rows.length > 0 ? rowToStep(rows[0]!) : null;
+}
+
+async function getStepById(
+  id: string,
+): Promise<WorkflowExecutionStep | null> {
+  const db = getDb();
+  const rows = (await db`
+    SELECT * FROM workflow_execution_steps WHERE id = ${id}
+  `) as Array<Record<string, unknown>>;
   return rows.length > 0 ? rowToStep(rows[0]!) : null;
 }
 

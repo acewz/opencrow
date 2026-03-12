@@ -141,12 +141,16 @@ function TriggerProperties({
       )}
       {data.triggerType === "webhook" && (
         <div className="mb-4">
-          <Label>Webhook Path</Label>
-          <FieldInput
-            value={data.webhookPath ?? ""}
-            onChange={(v) => onChange({ webhookPath: v })}
-            placeholder="/webhook/my-flow"
-          />
+          <Label>Webhook URL</Label>
+          <p className="text-xs text-muted leading-relaxed">
+            Send a <code className="font-mono text-accent bg-bg-2 px-1 rounded">POST</code> request to:
+          </p>
+          <div className="mt-1.5 px-2 py-1.5 bg-bg border border-border-2 rounded-md text-xs font-mono text-faint break-all">
+            /api/webhooks/&#123;workflowId&#125;
+          </div>
+          <p className="text-[11px] text-faint mt-1.5">
+            The workflow must be enabled. The request body is passed as trigger input.
+          </p>
         </div>
       )}
     </>

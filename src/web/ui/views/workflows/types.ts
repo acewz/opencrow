@@ -67,12 +67,20 @@ export type WorkflowNodeData =
 
 import type { Node, Edge } from "@xyflow/react";
 
+export interface SavedWorkflowViewport {
+  readonly x: number;
+  readonly y: number;
+  readonly zoom: number;
+}
+
 export interface SavedWorkflow {
   readonly id: string;
   readonly name: string;
   readonly description: string;
+  readonly enabled: boolean;
   readonly nodes: Node<WorkflowNodeData>[];
   readonly edges: Edge[];
+  readonly viewport?: SavedWorkflowViewport;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -90,4 +98,32 @@ export interface SkillOption {
 export interface ToolOption {
   readonly name: string;
   readonly description: string;
+}
+
+// ---------------------------------------------------------------------------
+// Execution visualization types
+// ---------------------------------------------------------------------------
+
+export type StepStatus = "pending" | "running" | "completed" | "failed" | "skipped";
+export type ExecutionStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface StepInfo {
+  readonly nodeId: string;
+  readonly status: StepStatus;
+  readonly output?: unknown;
+  readonly error?: string;
+}
+
+/** Map from nodeId -> StepInfo for the current execution */
+export type ExecutionStepMap = ReadonlyMap<string, StepInfo>;
+
+export interface ExecutionRecord {
+  readonly id: string;
+  readonly workflowId: string;
+  readonly status: ExecutionStatus;
+  readonly error?: string;
+  readonly result?: unknown;
+  readonly startedAt?: number | null;
+  readonly finishedAt?: number | null;
+  readonly createdAt: number;
 }

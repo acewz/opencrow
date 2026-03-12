@@ -3,8 +3,7 @@ import { Modal } from "../../components";
 import { apiFetch } from "../../api";
 import type { SavedWorkflow } from "./types";
 import type { WorkflowAction } from "./useWorkflowReducer";
-import type { WorkflowNodeData } from "./types";
-import { Trash2, FolderOpen } from "lucide-react";
+import { Trash2, FolderOpen, Copy } from "lucide-react";
 
 interface WorkflowListProps {
   readonly open: boolean;
@@ -31,6 +30,8 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [duplicating, setDuplicating] = useState<string | null>(null);
+  const [toggling, setToggling] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -49,8 +50,10 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
         id: wf.id,
         name: wf.name,
         description: wf.description,
+        enabled: wf.enabled,
         nodes: wf.nodes,
         edges: wf.edges,
+        viewport: wf.viewport ?? { x: 0, y: 0, zoom: 1 },
       },
     });
     onClose();
@@ -65,6 +68,37 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
       setError("Failed to delete workflow");
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function handleToggleEnabled(wf: SavedWorkflow) {
+    setToggling(wf.id);
+    try {
+      const res = await apiFetch<{ data: SavedWorkflow }>(`/api/workflows/${wf.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ enabled: !wf.enabled }),
+      });
+      setWorkflows((prev) =>
+        prev.map((w) => (w.id === wf.id ? res.data : w)),
+      );
+    } catch {
+      setError("Failed to update workflow");
+    } finally {
+      setToggling(null);
+    }
+  }
+
+  async function handleDuplicate(wf: SavedWorkflow) {
+    setDuplicating(wf.id);
+    try {
+      const res = await apiFetch<{ data: SavedWorkflow }>(`/api/workflows/${wf.id}/duplicate`, {
+        method: "POST",
+      });
+      setWorkflows((prev) => [res.data, ...prev]);
+    } catch {
+      setError("Failed to duplicate workflow");
+    } finally {
+      setDuplicating(null);
     }
   }
 
@@ -108,6 +142,33 @@ export function WorkflowList({ open, onClose, dispatch }: WorkflowListProps) {
                 <div className="text-[11px] text-faint mt-1">
                   {formatDate(wf.updatedAt || wf.createdAt)}
                 </div>
+              </button>
+              <button
+                type="button"
+                disabled={toggling === wf.id}
+                onClick={() => handleToggleEnabled(wf)}
+                className={`w-8 h-8 flex items-center justify-center rounded-md border transition-colors cursor-pointer bg-transparent shrink-0 disabled:opacity-50 text-xs font-bold ${wf.enabled ? "border-green-500/40 text-green-500 bg-green-500/10 hover:bg-green-500/20" : "border-border-2 text-faint hover:text-foreground hover:border-border-hover"}`}
+                aria-label={wf.enabled ? "Disable workflow" : "Enable workflow"}
+                title={wf.enabled ? "Enabled — click to disable" : "Disabled — click to enable"}
+              >
+                {toggling === wf.id ? (
+                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                ) : (
+                  <span>{wf.enabled ? "ON" : "OFF"}</span>
+                )}
+              </button>
+              <button
+                type="button"
+                disabled={duplicating === wf.id}
+                onClick={() => handleDuplicate(wf)}
+                className="w-8 h-8 flex items-center justify-center rounded-md border border-transparent text-faint hover:text-accent hover:border-accent/30 hover:bg-accent/10 transition-colors cursor-pointer bg-transparent shrink-0 disabled:opacity-50"
+                aria-label="Duplicate workflow"
+              >
+                {duplicating === wf.id ? (
+                  <span className="w-3.5 h-3.5 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+                ) : (
+                  <Copy size={14} />
+                )}
               </button>
               <button
                 type="button"

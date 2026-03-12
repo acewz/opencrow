@@ -13,6 +13,7 @@ import { evaluateCondition } from "./expression";
 import { runAgentIsolated } from "../agents/runner";
 import { readSkillContent } from "../skills/loader";
 import { createLogger } from "../logger";
+import { executionEvents } from "./events";
 
 const log = createLogger("workflows:engine");
 
@@ -107,6 +108,7 @@ async function runExecution(
     status: "running",
     startedAt: now(),
   }))!;
+  executionEvents.emit(executionId, { type: "execution", status: "running" });
 
   // AbortController for timeout
   const controller = new AbortController();
@@ -141,6 +143,7 @@ async function runExecution(
           nodeType: node.type,
         });
         await updateStep(step.id, { status: "skipped" });
+        executionEvents.emit(executionId, { type: "step", nodeId: node.id, status: "skipped" });
         continue;
       }
 
@@ -161,6 +164,7 @@ async function runExecution(
       });
 
       await updateStep(step.id, { status: "running", startedAt: now() });
+      executionEvents.emit(executionId, { type: "step", nodeId: node.id, status: "running" });
 
       try {
         const nodeOutput = await executeNode(
@@ -176,6 +180,12 @@ async function runExecution(
           status: "completed",
           output: nodeOutput,
           finishedAt: now(),
+        });
+        executionEvents.emit(executionId, {
+          type: "step",
+          nodeId: node.id,
+          status: "completed",
+          output: nodeOutput,
         });
 
         // Handle condition branching
@@ -199,6 +209,12 @@ async function runExecution(
           error: errMsg,
           finishedAt: now(),
         });
+        executionEvents.emit(executionId, {
+          type: "step",
+          nodeId: node.id,
+          status: "failed",
+          error: errMsg,
+        });
         throw err;
       }
     }
@@ -215,6 +231,11 @@ async function runExecution(
       result: finalResult ?? null,
       finishedAt: now(),
     }))!;
+    executionEvents.emit(executionId, {
+      type: "execution",
+      status: "completed",
+      result: finalResult ?? null,
+    });
 
     log.info("Workflow completed", {
       workflowId: workflow.id,
@@ -230,6 +251,11 @@ async function runExecution(
       error: errMsg,
       finishedAt: now(),
     }))!;
+    executionEvents.emit(executionId, {
+      type: "execution",
+      status: "failed",
+      error: errMsg,
+    });
 
     log.error("Workflow failed", {
       workflowId: workflow.id,
