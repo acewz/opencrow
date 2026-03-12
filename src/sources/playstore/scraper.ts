@@ -11,6 +11,7 @@ import {
   markRankingsIndexed,
   type PlayRankingRow,
   type PlayReviewRow,
+  type PlayAppRow,
 } from "./store";
 
 import { getErrorMessage } from "../../lib/error-serialization";
@@ -147,11 +148,11 @@ function reviewsToAppReviewsForIndex(
 }
 
 function rankingsToAppRankingsForIndex(
-  rankings: readonly PlayRankingRow[],
+  rankings: readonly PlayAppRow[],
 ): readonly AppRankingForIndex[] {
   return rankings
     .map((r) => ({
-      id: `playstore-ranking-${r.id}-${r.list_type}`,
+      id: `playstore-ranking-${r.id}`,
       name: r.name,
       artist: r.developer,
       category: r.category,

@@ -11,6 +11,7 @@ import {
   markRankingsIndexed,
   type AppRankingRow,
   type AppReviewRow,
+  type AppRow,
 } from "./store";
 
 import { getErrorMessage } from "../../lib/error-serialization";
@@ -264,11 +265,11 @@ function reviewsToAppReviewsForIndex(
 }
 
 function rankingsToAppRankingsForIndex(
-  rankings: readonly AppRankingRow[],
+  rankings: readonly AppRow[],
 ): readonly AppRankingForIndex[] {
   return rankings
     .map((r) => ({
-      id: `appstore-ranking-${r.id}-${r.list_type}`,
+      id: `appstore-ranking-${r.id}`,
       name: r.name,
       artist: r.artist,
       category: r.category,
