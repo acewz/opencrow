@@ -7,7 +7,15 @@ import {
   createWorkflow,
   updateWorkflow,
   deleteWorkflow,
+  getExecutionsByWorkflow,
+  getExecution,
+  getStepsByExecution,
 } from "../../store/workflows";
+import { startWorkflowExecution } from "../../workflows/engine";
+import type { AgentRegistry } from "../../agents/registry";
+import type { ToolRegistry } from "../../tools/registry";
+import type { ResolvedAgent } from "../../agents/types";
+import type { AgentOptions } from "../../agent/types";
 
 const log = createLogger("web:workflows");
 
@@ -48,7 +56,13 @@ const createWorkflowSchema = z.object({
 
 const updateWorkflowSchema = createWorkflowSchema.partial();
 
-export function createWorkflowRoutes(): Hono {
+export interface WorkflowRouteDeps {
+  readonly agentRegistry: AgentRegistry;
+  readonly toolRegistry: ToolRegistry | null;
+  readonly buildAgentOptions?: (agent: ResolvedAgent) => Promise<AgentOptions>;
+}
+
+export function createWorkflowRoutes(deps?: WorkflowRouteDeps): Hono {
   const app = new Hono();
 
   app.get("/workflows", async (c) => {
@@ -152,6 +166,104 @@ export function createWorkflowRoutes(): Hono {
     } catch (err) {
       log.error("Failed to delete workflow", { err, id });
       return c.json({ success: false, error: "Failed to delete workflow" }, 500);
+    }
+  });
+
+  // ---------------------------------------------------------------------------
+  // Execution endpoints
+  // ---------------------------------------------------------------------------
+
+  app.post("/workflows/:id/run", async (c) => {
+    const id = c.req.param("id");
+    if (!uuidSchema.safeParse(id).success) {
+      return c.json({ success: false, error: "Invalid workflow ID" }, 400);
+    }
+
+    if (!deps) {
+      return c.json(
+        { success: false, error: "Workflow execution is not available in this mode" },
+        503,
+      );
+    }
+
+    const workflow = await getWorkflowById(id).catch(() => null);
+    if (!workflow) {
+      return c.json({ success: false, error: "Workflow not found" }, 404);
+    }
+
+    const rawBody = await c.req.json().catch(() => ({}));
+
+    // Validate that the body is a plain object (record) and within size limit.
+    const triggerInputSchema = z.record(z.string(), z.unknown()).optional();
+    const parsedBody = triggerInputSchema.safeParse(
+      rawBody && typeof rawBody === "object" && !Array.isArray(rawBody) ? rawBody : {},
+    );
+    if (!parsedBody.success) {
+      return c.json(
+        { success: false, error: "Trigger input must be a plain object" },
+        400,
+      );
+    }
+
+    const triggerInput = parsedBody.data ?? {};
+
+    if (JSON.stringify(triggerInput).length > 100_000) {
+      return c.json({ success: false, error: "Trigger input exceeds maximum allowed size" }, 413);
+    }
+
+    const engineDeps = {
+      agentRegistry: deps.agentRegistry,
+      toolRegistry: deps.toolRegistry,
+      buildAgentOptions: deps.buildAgentOptions,
+    };
+
+    try {
+      const { executionId } = await startWorkflowExecution(
+        workflow,
+        triggerInput,
+        engineDeps,
+      );
+      return c.json({ success: true, data: { executionId } }, 202);
+    } catch (err) {
+      log.error("Failed to start workflow execution", { err, workflowId: id });
+      return c.json({ success: false, error: "Failed to start workflow execution" }, 500);
+    }
+  });
+
+  app.get("/workflows/:id/executions", async (c) => {
+    const id = c.req.param("id");
+    if (!uuidSchema.safeParse(id).success) {
+      return c.json({ success: false, error: "Invalid workflow ID" }, 400);
+    }
+
+    const limitParam = c.req.query("limit");
+    const limit = Math.max(1, Math.min(Number(limitParam ?? "50") || 50, 200));
+
+    try {
+      const executions = await getExecutionsByWorkflow(id, limit);
+      return c.json({ success: true, data: executions });
+    } catch (err) {
+      log.error("Failed to list executions", { err, workflowId: id });
+      return c.json({ success: false, error: "Failed to fetch executions" }, 500);
+    }
+  });
+
+  app.get("/workflow-executions/:id", async (c) => {
+    const id = c.req.param("id");
+    if (!uuidSchema.safeParse(id).success) {
+      return c.json({ success: false, error: "Invalid execution ID" }, 400);
+    }
+
+    try {
+      const execution = await getExecution(id);
+      if (!execution) {
+        return c.json({ success: false, error: "Execution not found" }, 404);
+      }
+      const steps = await getStepsByExecution(id);
+      return c.json({ success: true, data: { ...execution, steps } });
+    } catch (err) {
+      log.error("Failed to get execution", { err, id });
+      return c.json({ success: false, error: "Failed to fetch execution" }, 500);
     }
   });
 

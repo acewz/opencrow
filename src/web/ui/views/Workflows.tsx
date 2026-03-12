@@ -8,6 +8,7 @@ import { NodePalette } from "./workflows/NodePalette";
 import { WorkflowCanvas } from "./workflows/WorkflowCanvas";
 import { PropertiesPanel } from "./workflows/PropertiesPanel";
 import { WorkflowList } from "./workflows/WorkflowList";
+import { RunControls } from "./workflows/RunControls";
 import type { Node } from "@xyflow/react";
 import type { WorkflowNodeData } from "./workflows/types";
 
@@ -114,6 +115,7 @@ export default function Workflows() {
             <Save size={14} />
             Save
           </Button>
+          <RunControls workflowId={state.id} isDirty={state.isDirty} />
         </div>
       </div>
 

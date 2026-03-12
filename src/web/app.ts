@@ -51,6 +51,7 @@ import type { ChannelRegistry } from "../channels/registry";
 import type { ChannelManager } from "../channels/manager";
 import type { AgentOptions } from "../agent/types";
 import type { AgentRegistry } from "../agents/registry";
+import type { ToolRegistry } from "../tools/registry";
 import type { CronStore } from "../cron/store";
 import type { CronScheduler } from "../cron/scheduler";
 import type { SubAgentTracker } from "../agents/tracker";
@@ -69,6 +70,7 @@ export interface WebAppDeps {
   readonly channelManager?: ChannelManager;
   readonly getDefaultAgentOptions: () => Promise<AgentOptions>;
   readonly agentRegistry: AgentRegistry;
+  readonly toolRegistry?: ToolRegistry;
   readonly cronStore?: CronStore;
   readonly cronScheduler?: CronScheduler;
   readonly subAgentTracker?: SubAgentTracker;
@@ -342,7 +344,15 @@ export function createWebApp(deps: WebAppDeps): Hono {
 
 
 
-  const workflows = createWorkflowRoutes();
+  const workflows = createWorkflowRoutes(
+    deps.toolRegistry !== undefined
+      ? {
+          agentRegistry: deps.agentRegistry,
+          toolRegistry: deps.toolRegistry,
+          buildAgentOptions: deps.buildAgentOptions,
+        }
+      : undefined,
+  );
   app.route("/api", workflows);
 
   const skills = createSkillRoutes();
