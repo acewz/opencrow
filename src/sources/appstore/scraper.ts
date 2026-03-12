@@ -318,35 +318,76 @@ export function createAppStoreScraper(config?: {
     }
   }
 
+  function parseItunesResult(r: Record<string, unknown>): AppRankingRow {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      id: String(r.trackId ?? ""),
+      name: String(r.trackName ?? ""),
+      artist: String(r.artistName ?? ""),
+      category: String(r.primaryGenreName ?? ""),
+      rank: 0,
+      list_type: "discovered",
+      icon_url: String(r.artworkUrl100 ?? ""),
+      store_url: String(r.trackViewUrl ?? ""),
+      description: String(r.description ?? "").slice(0, 2000),
+      price: r.price === 0 ? "Free" : `$${r.price ?? 0}`,
+      bundle_id: String(r.bundleId ?? ""),
+      release_date: String(r.releaseDate ?? ""),
+      updated_at: now,
+      indexed_at: null,
+    };
+  }
+
   async function fetchRelatedApps(appId: string): Promise<readonly AppRankingRow[]> {
     try {
-      const data = await fetchJson(
-        `https://itunes.apple.com/lookup?id=${appId}&entity=software&limit=25`,
+      // Step 1: Look up the seed app to get its artistId and genre
+      const lookupData = await fetchJson(
+        `https://itunes.apple.com/lookup?id=${appId}`,
       ) as { results?: readonly Record<string, unknown>[] };
 
-      const results = data.results ?? [];
-      // First result is the app itself, rest are related
-      const related = results.slice(1);
-      const now = Math.floor(Date.now() / 1000);
+      const seedApp = (lookupData.results ?? [])[0];
+      if (!seedApp) return [];
 
-      return related
-        .filter((r) => r.trackId)
-        .map((r) => ({
-          id: String(r.trackId ?? ""),
-          name: String(r.trackName ?? ""),
-          artist: String(r.artistName ?? ""),
-          category: String(r.primaryGenreName ?? ""),
-          rank: 0,
-          list_type: "discovered",
-          icon_url: String(r.artworkUrl100 ?? ""),
-          store_url: String(r.trackViewUrl ?? ""),
-          description: String(r.description ?? "").slice(0, 2000),
-          price: r.price === 0 ? "Free" : `$${r.price ?? 0}`,
-          bundle_id: String(r.bundleId ?? ""),
-          release_date: String(r.releaseDate ?? ""),
-          updated_at: now,
-          indexed_at: null,
-        }));
+      const artistId = seedApp.artistId as number | undefined;
+      const genre = seedApp.primaryGenreName as string | undefined;
+      const discovered: AppRankingRow[] = [];
+
+      // Step 2: Fetch other apps by the same developer
+      if (artistId) {
+        await delay(REQUEST_DELAY_MS);
+        const artistData = await fetchJson(
+          `https://itunes.apple.com/lookup?id=${artistId}&entity=software&limit=25`,
+        ) as { results?: readonly Record<string, unknown>[] };
+
+        const artistResults = (artistData.results ?? [])
+          .filter((r) => r.wrapperType === "software" && String(r.trackId ?? "") !== appId);
+
+        for (const r of artistResults) {
+          if (r.trackId) discovered.push(parseItunesResult(r));
+        }
+      }
+
+      // Step 3: Search for apps in the same genre
+      if (genre) {
+        await delay(REQUEST_DELAY_MS);
+        const term = encodeURIComponent(genre);
+        const searchData = await fetchJson(
+          `https://itunes.apple.com/search?term=${term}&entity=software&limit=25&country=us`,
+        ) as { results?: readonly Record<string, unknown>[] };
+
+        const seenIds = new Set(discovered.map((d) => d.id));
+        seenIds.add(appId);
+
+        for (const r of searchData.results ?? []) {
+          const trackId = String(r.trackId ?? "");
+          if (trackId && !seenIds.has(trackId)) {
+            seenIds.add(trackId);
+            discovered.push(parseItunesResult(r));
+          }
+        }
+      }
+
+      return discovered;
     } catch (err) {
       const msg = getErrorMessage(err);
       log.warn("Failed to fetch related apps", { appId, error: msg });
