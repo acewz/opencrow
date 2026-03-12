@@ -195,7 +195,7 @@ export async function getUnindexedRankings(
   const db = getDb();
   const rows = await db`
     SELECT * FROM playstore_rankings
-    WHERE indexed_at IS NULL AND description != ''
+    WHERE indexed_at IS NULL
     ORDER BY updated_at DESC
     LIMIT ${limit}
   `;

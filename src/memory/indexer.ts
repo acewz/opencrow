@@ -88,7 +88,7 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
     }
 
     // Filter out tiny chunks that are semantically meaningless
-    const MIN_CHUNK_TOKENS = 30;
+    const MIN_CHUNK_TOKENS = 10;
     const filteredIndices = newIndices.filter(
       (i) => countTokens(texts[i]!) >= MIN_CHUNK_TOKENS,
     );
