@@ -29,7 +29,7 @@ const uuidSchema = z.string().regex(UUID_RE, "Invalid UUID");
 const nodeSchema = z.object({
   id: z.string().max(200),
   type: z.string().max(100),
-  position: z.object({ x: z.number(), y: z.number() }),
+  position: z.object({ x: z.number(), y: z.number() }).passthrough(),
   data: z.record(z.string(), z.unknown()).refine(
     (val) => JSON.stringify(val).length < 10_000,
     { message: "Node data exceeds maximum allowed size" },
@@ -50,7 +50,7 @@ const nodeSchema = z.object({
       ctx.addIssue({ code: z.ZodIssueCode.custom, message: "cronExpression is not a valid cron expression" });
     }
   }),
-});
+}).passthrough();
 
 const edgeSchema = z.object({
   id: z.string().max(200),
@@ -58,13 +58,13 @@ const edgeSchema = z.object({
   target: z.string().max(200),
   sourceHandle: z.string().max(200).nullable().optional(),
   targetHandle: z.string().max(200).nullable().optional(),
-});
+}).passthrough();
 
 const viewportSchema = z.object({
   x: z.number(),
   y: z.number(),
   zoom: z.number(),
-});
+}).passthrough();
 
 const createWorkflowSchema = z.object({
   name: z.string().min(1, "Name is required").max(200),
