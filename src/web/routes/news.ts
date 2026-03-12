@@ -111,10 +111,12 @@ export function createNewsRoutes(opts: {
   });
 
   app.post("/news/backfill-rag", async (c) => {
-    log.info("News RAG backfill triggered");
+    const body = await c.req.json().catch(() => ({})) as { source?: string };
+    const source = body.source || undefined;
+    log.info("News RAG backfill triggered", { source: source ?? "all" });
     try {
       if (opts.processor) {
-        const result = await opts.processor.backfillRag();
+        const result = await opts.processor.backfillRag(source);
         if (result.error) {
           return c.json({ success: false, error: result.error, data: result }, 500);
         }
