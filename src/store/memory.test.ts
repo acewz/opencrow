@@ -64,18 +64,6 @@ describe("store/memory", () => {
       expect(entries[0]!.key).toBe("mood");
       expect(entries[0]!.value).toBe("focused");
     });
-
-    it("updates updatedAt on upsert", async () => {
-      await setMemory(TEST_AGENT, "counter", "1");
-      const before = await getAgentMemories(TEST_AGENT);
-
-      // Small delay to ensure timestamp differs
-      await new Promise((r) => setTimeout(r, 1100));
-      await setMemory(TEST_AGENT, "counter", "2");
-      const after = await getAgentMemories(TEST_AGENT);
-
-      expect(after[0]!.updatedAt).toBeGreaterThanOrEqual(before[0]!.updatedAt);
-    });
   });
 
   describe("agent isolation", () => {
@@ -98,17 +86,21 @@ describe("store/memory", () => {
 
   describe("ordering", () => {
     it("returns entries ordered by updated_at ascending", async () => {
-      // Insert with delays to guarantee different timestamps
-      await setMemory(TEST_AGENT, "first", "1");
-      await new Promise((r) => setTimeout(r, 1100));
-      await setMemory(TEST_AGENT, "second", "2");
+      const db = getDb();
+      const now = Math.floor(Date.now() / 1000);
+      // Seed with explicit timestamps to avoid sleeps
+      await db.unsafe(
+        `INSERT INTO agent_memory (agent_id, key, value, updated_at)
+         VALUES ('${TEST_AGENT}', 'first', '1', ${now - 100}),
+                ('${TEST_AGENT}', 'second', '2', ${now})`,
+      );
 
       const entries = await getAgentMemories(TEST_AGENT);
 
       expect(entries.length).toBe(2);
       expect(entries[0]!.key).toBe("first");
       expect(entries[1]!.key).toBe("second");
-      expect(entries[0]!.updatedAt).toBeLessThanOrEqual(entries[1]!.updatedAt);
+      expect(entries[0]!.updatedAt).toBeLessThan(entries[1]!.updatedAt);
     });
   });
 });

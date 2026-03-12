@@ -122,6 +122,31 @@ describe("store/summaries", () => {
       expect(result).not.toBeNull();
       expect(result!.summary).toBe("Correct channel+chat");
     });
+
+    it("scopes by chatId within the same channel", async () => {
+      const now = Math.floor(Date.now() / 1000);
+      await insertSummary({
+        channel: TEST_CHANNEL,
+        chatId: TEST_CHAT,
+        summary: "Correct chat",
+        messageCount: 8,
+        tokenEstimate: 250,
+        createdAt: now,
+      });
+      await insertSummary({
+        channel: TEST_CHANNEL,
+        chatId: "test-summaries-other-chat",
+        summary: "Different chat",
+        messageCount: 4,
+        tokenEstimate: 120,
+        createdAt: now,
+      });
+
+      const result = await getLatestSummary(TEST_CHANNEL, TEST_CHAT);
+
+      expect(result).not.toBeNull();
+      expect(result!.summary).toBe("Correct chat");
+    });
   });
 
   describe("clearSummaries", () => {
