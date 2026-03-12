@@ -168,7 +168,7 @@ function CanvasInner({ state, dispatch, validationErrors, stepStatuses = new Map
   );
 
   const isValidConnection = useCallback<IsValidConnection>(
-    (connection) => {
+    (connection: any) => {
       const source = "source" in connection ? connection.source : null;
       const target = "target" in connection ? connection.target : null;
       if (!source || !target) return false;
