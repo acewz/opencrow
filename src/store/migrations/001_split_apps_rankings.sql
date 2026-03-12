@@ -87,3 +87,11 @@ CREATE INDEX IF NOT EXISTS idx_playstore_apps_indexed_at ON playstore_apps USING
 -- Drop old tables (replaced by *_apps + *_ranking_history)
 DROP TABLE IF EXISTS appstore_rankings;
 DROP TABLE IF EXISTS playstore_rankings;
+
+-- Clean up old ranking chunks from memory (CASCADE deletes chunks)
+DELETE FROM memory_sources WHERE kind = 'appstore_ranking';
+DELETE FROM memory_sources WHERE kind = 'playstore_ranking';
+
+-- Update memory_sources kind constraint to use _app instead of _ranking
+ALTER TABLE memory_sources DROP CONSTRAINT IF EXISTS memory_sources_kind_check;
+ALTER TABLE memory_sources ADD CONSTRAINT memory_sources_kind_check CHECK ((kind = ANY (ARRAY['conversation'::text, 'note'::text, 'document'::text, 'x_post'::text, 'reuters_news'::text, 'cointelegraph_news'::text, 'cryptopanic_news'::text, 'investingnews_news'::text, 'producthunt_product'::text, 'hackernews_story'::text, 'reddit_post'::text, 'github_repo'::text, 'observation'::text, 'idea'::text, 'appstore_review'::text, 'appstore_app'::text, 'playstore_review'::text, 'playstore_app'::text])));

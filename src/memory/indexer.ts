@@ -678,7 +678,7 @@ export function createMemoryIndexer(config: IndexerConfig): MemoryIndexer {
       let firstSourceId = "";
 
       for (const [store, group] of byStore) {
-        const kind: MemorySourceKind = `${store}_ranking`;
+        const kind: MemorySourceKind = `${store}_app`;
         const sourceId = crypto.randomUUID();
         if (!firstSourceId) firstSourceId = sourceId;
 
