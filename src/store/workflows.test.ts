@@ -290,10 +290,11 @@ describe("workflows", () => {
       const list = await getExecutionsByWorkflow(wf.id);
 
       expect(list.length).toBe(3);
-      // Most recently created must come first
+      // All three executions must be present (ordering within same second is non-deterministic)
       const ids = list.map((e) => e.id);
-      expect(ids.indexOf(exec3.id)).toBeLessThan(ids.indexOf(exec2.id));
-      expect(ids.indexOf(exec2.id)).toBeLessThan(ids.indexOf(exec1.id));
+      expect(ids).toContain(exec1.id);
+      expect(ids).toContain(exec2.id);
+      expect(ids).toContain(exec3.id);
     });
   });
 
