@@ -32,11 +32,12 @@ describe("store/summaries", () => {
     createdAt: number;
   }): Promise<string> {
     const db = getDb();
+    const id = crypto.randomUUID();
     const rows = await db`
       INSERT INTO conversation_summaries
-        (channel, chat_id, summary, message_count, token_estimate, created_at)
+        (id, channel, chat_id, summary, message_count, token_estimate, created_at)
       VALUES
-        (${opts.channel}, ${opts.chatId}, ${opts.summary},
+        (${id}, ${opts.channel}, ${opts.chatId}, ${opts.summary},
          ${opts.messageCount}, ${opts.tokenEstimate}, ${opts.createdAt})
       RETURNING id
     `;
