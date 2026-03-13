@@ -142,6 +142,7 @@ export async function chat(
 
   try {
     let resultText = "";
+    let lastAssistantText = "";
     const sessionCapture = { done: false };
     let usage: SdkUsage = createEmptyUsage();
 
@@ -173,6 +174,25 @@ export async function chat(
           options.onSdkSessionId,
         );
 
+        // Capture assistant text blocks (where actual generated content lives)
+        if (message.type === "assistant") {
+          const content = (message as Record<string, unknown>).content;
+          if (Array.isArray(content)) {
+            for (const block of content) {
+              if (
+                block &&
+                typeof block === "object" &&
+                (block as Record<string, unknown>).type === "text" &&
+                (block as Record<string, unknown>).text
+              ) {
+                lastAssistantText = String(
+                  (block as Record<string, unknown>).text,
+                );
+              }
+            }
+          }
+        }
+
         if (message.type === "result") {
           usage = extractUsageFromResult(
             message as Record<string, unknown>,
@@ -185,10 +205,12 @@ export async function chat(
         }
       }
     } catch (streamError) {
-      if (resultText.trim()) {
+      const hasUsable = Boolean(resultText.trim() || lastAssistantText.trim());
+      if (hasUsable) {
         log.warn("SDK subprocess crashed after producing results — recovering", {
           agentId,
           resultLength: resultText.length,
+          lastAssistantLength: lastAssistantText.length,
           error: streamError instanceof Error ? streamError.message : String(streamError),
         });
       } else {
@@ -196,16 +218,20 @@ export async function chat(
       }
     }
 
+    // Fall back to assistant text if result is a short summary (not the actual JSON)
+    const finalText = resultText || lastAssistantText;
+
     log.info("Agent SDK chat complete", {
       model: options.model,
-      resultLength: resultText.length,
+      resultLength: finalText.length,
+      usedFallback: !resultText && !!lastAssistantText,
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       costUsd: usage.costUsd,
     });
 
     return {
-      text: resultText,
+      text: finalText,
       provider: "agent-sdk",
       usage: { ...usage },
     };
