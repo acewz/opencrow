@@ -340,7 +340,7 @@ export async function getPipelineIdeas(
        AND ($4::float IS NULL OR g.quality_score >= $4)
        AND ($5::text IS NULL OR (g.title ILIKE $5 OR g.summary ILIKE $5))
      ORDER BY ${orderBy}
-     LIMIT $6 OFFSET $7`,
+     LIMIT $6::int OFFSET $7::int`,
     [runId, category, stage, minScore, search, limit, offset],
   ) as Promise<Record<string, unknown>[]>;
 }
