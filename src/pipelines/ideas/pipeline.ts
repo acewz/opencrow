@@ -204,7 +204,7 @@ export async function runIdeasPipeline(
       runId,
       "analysis",
       () => analyzeSignals(signals, config.category, model, deepSearchContext || undefined),
-      (a) => `${a.themes.length} themes, ${a.gaps.length} gaps identified`,
+      (a) => `${a.themes?.length ?? 0} themes, ${a.gaps?.length ?? 0} gaps identified`,
     );
 
     // ── Step 5: Generate ideas (AI Pass 3) ────────────────────────────

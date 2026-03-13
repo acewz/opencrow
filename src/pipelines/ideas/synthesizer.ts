@@ -193,7 +193,9 @@ Prioritize themes where multiple signal types converge (e.g., a pain_point + tre
   });
 
   return {
-    ...result,
+    signals: result.signals ?? signals,
+    themes: result.themes ?? [],
+    gaps: result.gaps ?? [],
     totalSignals: result.signals?.length ?? signals.length,
   };
 }
