@@ -78,7 +78,7 @@ function parseJsonFromResponse<T>(text: string, fallback: T): T {
 
 // ── Pass 1: Signal Extraction ───────────────────────────────────────────
 
-async function extractSignals(
+export async function extractSignals(
   aggregatedContext: string,
   category: IdeaCategory,
   model: string,
@@ -134,7 +134,7 @@ Return ONLY a JSON array of signals:
 
 // ── Pass 2: Cross-Reference & Gap Analysis ──────────────────────────────
 
-async function analyzeSignals(
+export async function analyzeSignals(
   signals: readonly ExtractedSignal[],
   category: IdeaCategory,
   model: string,
@@ -200,7 +200,7 @@ Prioritize themes where multiple signal types converge (e.g., a pain_point + tre
 
 // ── Pass 3: Idea Generation ─────────────────────────────────────────────
 
-async function generateIdeas(
+export async function generateIdeas(
   analysis: AnalysisResult,
   category: IdeaCategory,
   maxIdeas: number,
@@ -286,7 +286,7 @@ Return ONLY a JSON array:
  * across the ENTIRE indexed corpus (Qdrant) to find deeper evidence,
  * historical patterns, and supporting data the initial collection missed.
  */
-async function deepSearch(
+export async function deepSearch(
   signals: readonly ExtractedSignal[],
   memoryManager: MemoryManager,
 ): Promise<string> {

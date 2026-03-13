@@ -12,6 +12,7 @@ import {
   Brain,
   ShieldCheck,
   Save,
+  Lightbulb,
 } from "lucide-react";
 import { apiFetch } from "../api";
 import { relativeTime } from "../lib/format";
@@ -100,16 +101,24 @@ const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
 
 const STEP_ICONS: Record<string, typeof Database> = {
   collect: Database,
+  signals: Zap,
+  deep_search: Brain,
+  analysis: Brain,
+  generation: Lightbulb,
   synthesize: Brain,
   validate: ShieldCheck,
   store: Save,
 };
 
 const STEP_LABELS: Record<string, string> = {
-  collect: "Data Collection",
+  collect: "Collect Data",
+  signals: "Extract Signals",
+  deep_search: "Deep Search",
+  analysis: "Cross-Reference",
+  generation: "Generate Ideas",
   synthesize: "AI Analysis",
-  validate: "Validation",
-  store: "Storage",
+  validate: "Validate",
+  store: "Store",
 };
 
 function formatDuration(ms: number): string {
