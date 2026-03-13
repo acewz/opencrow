@@ -13,7 +13,11 @@ import {
   getIdeasForRun,
   getLatestRun,
   acquirePipelineLock,
+  getPipelineIdeas,
+  getPipelineIdeasCount,
+  getPipelineRunsList,
 } from "../../pipelines/store";
+import { updateIdeaStage } from "../../sources/ideas/store";
 import { runIdeasPipeline } from "../../pipelines/ideas/pipeline";
 import { createLogger } from "../../logger";
 
@@ -231,6 +235,65 @@ export function createPipelineRoutes(): Hono {
     const runId = c.req.param("runId");
     const ideas = await getIdeasForRun(runId);
     return c.json({ success: true, data: ideas });
+  });
+
+  // ── Pipeline Ideas endpoints ──────────────────────────────────────
+
+  // List all pipeline-generated ideas with filters
+  app.get("/pipeline-ideas", async (c) => {
+    const runId = c.req.query("run_id") || undefined;
+    const category = c.req.query("category") || undefined;
+    const stage = c.req.query("stage") || undefined;
+    const minScoreParam = c.req.query("min_score");
+    const minScore = minScoreParam ? Number(minScoreParam) : undefined;
+    const search = c.req.query("search") || undefined;
+    const sort = (c.req.query("sort") as "newest" | "oldest" | "score") || "newest";
+    const limitParam = c.req.query("limit");
+    const limit = limitParam ? Math.min(Math.max(1, Number(limitParam)), 200) : 50;
+    const offsetParam = c.req.query("offset");
+    const offset = Math.max(0, Number(offsetParam ?? "0") || 0);
+
+    const filter = { runId, category, stage, minScore, search, sort, limit, offset };
+
+    const [ideas, total] = await Promise.all([
+      getPipelineIdeas(filter),
+      getPipelineIdeasCount(filter),
+    ]);
+
+    return c.json({ success: true, data: ideas, meta: { total, limit, offset } });
+  });
+
+  // List pipeline runs that produced ideas (for filter dropdown)
+  app.get("/pipeline-ideas/runs", async (c) => {
+    const runs = await getPipelineRunsList();
+    return c.json({ success: true, data: runs });
+  });
+
+  // Update idea stage (archive/restore/validate)
+  app.patch("/pipeline-ideas/:id/stage", async (c) => {
+    const id = c.req.param("id");
+    const validStages = ["idea", "validated", "archived"] as const;
+
+    let body: { stage?: string };
+    try {
+      body = await c.req.json();
+    } catch {
+      return c.json({ success: false, error: "Invalid JSON body" }, 400);
+    }
+
+    if (!body.stage || !validStages.includes(body.stage as typeof validStages[number])) {
+      return c.json(
+        { success: false, error: `stage must be one of: ${validStages.join(", ")}` },
+        400,
+      );
+    }
+
+    const updated = await updateIdeaStage(id, body.stage);
+    if (!updated) {
+      return c.json({ success: false, error: "Idea not found" }, 404);
+    }
+
+    return c.json({ success: true, data: updated });
   });
 
   return app;

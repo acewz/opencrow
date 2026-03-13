@@ -284,9 +284,104 @@ export async function getIdeasForRun(
 ): Promise<readonly Record<string, unknown>[]> {
   const db = getDb();
   return db`
-    SELECT id, title, summary, reasoning, category, quality_score, sources_used, created_at
+    SELECT id, title, summary, reasoning, category, quality_score, sources_used, pipeline_stage, created_at
     FROM generated_ideas
     WHERE pipeline_run_id = ${runId}
     ORDER BY quality_score DESC NULLS LAST
   ` as Promise<Record<string, unknown>[]>;
+}
+
+// ── Pipeline ideas (all ideas from pipelines with filters) ──────────
+
+export interface PipelineIdeasFilter {
+  readonly runId?: string;
+  readonly category?: string;
+  readonly stage?: string;
+  readonly minScore?: number;
+  readonly search?: string;
+  readonly limit?: number;
+  readonly offset?: number;
+  readonly sort?: "newest" | "oldest" | "score";
+}
+
+export async function getPipelineIdeas(
+  filter: PipelineIdeasFilter = {},
+): Promise<readonly Record<string, unknown>[]> {
+  const db = getDb();
+  const limit = Math.min(filter.limit ?? 50, 200);
+  const offset = filter.offset ?? 0;
+
+  // Base: only pipeline-generated ideas
+  const runId = filter.runId ?? null;
+  const category = filter.category ?? null;
+  const stage = filter.stage ?? null;
+  const minScore = filter.minScore ?? null;
+  const search = filter.search ? `%${filter.search}%` : null;
+
+  const orderBy =
+    filter.sort === "oldest"
+      ? "created_at ASC"
+      : filter.sort === "score"
+        ? "quality_score DESC NULLS LAST, created_at DESC"
+        : "created_at DESC";
+
+  // Use conditional WHERE clauses with COALESCE pattern
+  return db.unsafe(
+    `SELECT g.id, g.title, g.summary, g.reasoning, g.category,
+            g.quality_score, g.sources_used, g.pipeline_stage,
+            g.pipeline_run_id, g.created_at,
+            p.pipeline_id as pipeline_name
+     FROM generated_ideas g
+     LEFT JOIN pipeline_runs p ON g.pipeline_run_id = p.id
+     WHERE g.pipeline_run_id IS NOT NULL
+       AND ($1::text IS NULL OR g.pipeline_run_id = $1)
+       AND ($2::text IS NULL OR g.category = $2)
+       AND ($3::text IS NULL OR COALESCE(g.pipeline_stage, 'idea') = $3)
+       AND ($4::float IS NULL OR g.quality_score >= $4)
+       AND ($5::text IS NULL OR (g.title ILIKE $5 OR g.summary ILIKE $5))
+     ORDER BY ${orderBy}
+     LIMIT $6 OFFSET $7`,
+    [runId, category, stage, minScore, search, limit, offset],
+  ) as Promise<Record<string, unknown>[]>;
+}
+
+export async function getPipelineIdeasCount(
+  filter: PipelineIdeasFilter = {},
+): Promise<number> {
+  const db = getDb();
+  const runId = filter.runId ?? null;
+  const category = filter.category ?? null;
+  const stage = filter.stage ?? null;
+  const minScore = filter.minScore ?? null;
+  const search = filter.search ? `%${filter.search}%` : null;
+
+  const rows = await db.unsafe(
+    `SELECT COUNT(*)::int as count
+     FROM generated_ideas
+     WHERE pipeline_run_id IS NOT NULL
+       AND ($1::text IS NULL OR pipeline_run_id = $1)
+       AND ($2::text IS NULL OR category = $2)
+       AND ($3::text IS NULL OR COALESCE(pipeline_stage, 'idea') = $3)
+       AND ($4::float IS NULL OR quality_score >= $4)
+       AND ($5::text IS NULL OR (title ILIKE $5 OR summary ILIKE $5))`,
+    [runId, category, stage, minScore, search],
+  );
+  return (rows[0] as { count: number }).count;
+}
+
+export async function getPipelineRunsList(): Promise<
+  readonly { id: string; pipeline_id: string; created_at: number; idea_count: number }[]
+> {
+  const db = getDb();
+  return db`
+    SELECT p.id, p.pipeline_id, p.created_at,
+           COUNT(g.id)::int as idea_count
+    FROM pipeline_runs p
+    LEFT JOIN generated_ideas g ON g.pipeline_run_id = p.id
+    WHERE p.status = 'completed'
+    GROUP BY p.id, p.pipeline_id, p.created_at
+    HAVING COUNT(g.id) > 0
+    ORDER BY p.created_at DESC
+    LIMIT 50
+  ` as Promise<{ id: string; pipeline_id: string; created_at: number; idea_count: number }[]>;
 }
