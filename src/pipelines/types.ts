@@ -24,7 +24,7 @@ export interface PipelineConfig {
 
 export const DEFAULT_PIPELINE_CONFIG: PipelineConfig = {
   category: "mobile_app",
-  maxIdeas: 10,
+  maxIdeas: 5,
   minQualityScore: 2.5,
   sourcesToInclude: [
     "appstore",

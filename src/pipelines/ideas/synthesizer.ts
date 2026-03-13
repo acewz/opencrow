@@ -55,7 +55,6 @@ function buildChatOptions(model: string): AgentOptions {
     model,
     provider: "agent-sdk",
     agentId: "idea-pipeline",
-    maxOutputTokens: 16000,
     usageContext: { channel: "pipeline", chatId: "ideas", source: "workflow" },
   };
 }
@@ -207,26 +206,20 @@ async function generateIdeas(
   maxIdeas: number,
   existingTitles: readonly string[],
   model: string,
-  deepSearchContext?: string,
 ): Promise<SynthesisResult> {
   const existingList =
     existingTitles.length > 0
       ? `\n\nEXISTING IDEAS (DO NOT duplicate these):\n${existingTitles.map((t) => `- ${t}`).join("\n")}`
       : "";
 
-  const deepSearchSection = deepSearchContext
-    ? `\n\nDEEP SEARCH EVIDENCE (from semantic search across full corpus — use these URLs as source links):\n${deepSearchContext}`
-    : "";
-
-  const prompt = `You are a visionary product strategist and serial entrepreneur. Based on the following market analysis AND deep search evidence, generate ${maxIdeas} specific, actionable product ideas.
+  const prompt = `You are a visionary product strategist and serial entrepreneur. Based on the following market analysis, generate ${maxIdeas} specific, actionable product ideas.
 
 ${CATEGORY_CONTEXT[category]}
 
 ANALYSIS:
 Top Themes: ${analysis.themes.join(", ")}
 Market Gaps: ${analysis.gaps.join("; ")}
-Key Signals: ${JSON.stringify(analysis.signals.slice(0, 15), null, 2)}
-${deepSearchSection}
+Key Signals: ${JSON.stringify(analysis.signals.slice(0, 10), null, 2)}
 ${existingList}
 
 For each idea, provide ALL of these fields:
@@ -420,15 +413,14 @@ export async function synthesize(
     gaps: analysis.gaps.length,
   });
 
-  // Pass 3: Generate ideas (with deep search context for source links)
-  log.info("Pass 3: Generating ideas from analysis + deep evidence");
+  // Pass 3: Generate ideas from analysis (deep search already fed into Pass 2)
+  log.info("Pass 3: Generating ideas from analysis");
   const synthesis = await generateIdeas(
     analysis,
     category,
     maxIdeas,
     existingTitles,
     model,
-    deepSearchContext || undefined,
   );
   log.info("Synthesis complete", { ideas: synthesis.totalGenerated });
 
