@@ -267,13 +267,50 @@ Return ONLY a JSON array:
   const response = await chat(messages, {
     ...buildChatOptions(model),
     systemPrompt:
-      "You are an elite product strategist who generates innovative, data-driven product ideas. Always respond with valid JSON.",
+      "You are a JSON API. You ONLY output valid JSON arrays. No markdown, no explanations, no preamble. Just the raw JSON array. Start your response with [ and end with ].",
   });
 
-  const candidates = parseJsonFromResponse<GeneratedIdeaCandidate[]>(
+  log.info("Pass 3 raw response", {
+    length: response.text.length,
+    preview: response.text.slice(0, 300),
+    endsWithBracket: response.text.trimEnd().endsWith("]"),
+  });
+
+  let candidates = parseJsonFromResponse<GeneratedIdeaCandidate[]>(
     response.text,
     [],
   );
+
+  // If first attempt failed, retry with an even more forceful prompt
+  if (candidates.length === 0 && response.text.length > 0) {
+    log.warn("Pass 3 returned no parseable JSON, retrying with simplified prompt");
+    const retryPrompt = `The previous response was not valid JSON. I need ONLY a JSON array of product ideas. No other text.
+
+Based on these themes: ${analysis.themes.join(", ")}
+And these gaps: ${(analysis.gaps ?? []).join("; ")}
+
+Generate ${maxIdeas} product ideas as a JSON array. Each object needs: title, summary, reasoning, designDescription, monetizationDetail, sourceLinks (empty array is fine), sourcesUsed, category ("${category}"), qualityScore (1-5), targetAudience, keyFeatures (array), revenueModel.
+
+Respond with ONLY the JSON array, starting with [ and ending with ]:`;
+
+    const retryResponse = await chat(
+      [{ role: "user", content: retryPrompt, timestamp: Date.now() }],
+      {
+        ...buildChatOptions(model),
+        systemPrompt: "Output only valid JSON. No other text.",
+      },
+    );
+
+    log.info("Pass 3 retry response", {
+      length: retryResponse.text.length,
+      preview: retryResponse.text.slice(0, 300),
+    });
+
+    candidates = parseJsonFromResponse<GeneratedIdeaCandidate[]>(
+      retryResponse.text,
+      [],
+    );
+  }
 
   return {
     candidates,
