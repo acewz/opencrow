@@ -137,33 +137,34 @@ export async function synthesizeFromTrends(input: {
     ? `\nPREVIOUSLY GENERATED (avoid these themes):\n${saturatedThemes}`
     : "";
 
-  const prompt = `You are a product strategist analyzing REAL market data to find opportunities at the intersection of three forces:
+  const prompt = `You are a product strategist analyzing REAL market data. You have three data sets:
 
-1. WHERE THE MARKET IS MOVING (trending categories, rising apps)
-2. WHAT'S BROKEN (pain points in those categories)
-3. WHAT'S NOW POSSIBLE (new tech, behavior shifts, emerging capabilities)
+1. THE APP LANDSCAPE — what 4000+ existing apps offer, their satisfaction scores, and which categories are underserved
+2. USER VOICES — what users hate AND what they love (both complaints and praises tell you what matters)
+3. NEW CAPABILITIES — what new tech, open source tools, and behavior shifts just became available
 
-The best ideas sit at the intersection: a growing market where users are frustrated AND new technology enables a 10x better solution.
+Your job: Find opportunities where existing apps FAIL to deliver what users clearly want, and where new capabilities make a BETTER solution possible now.
 
 ${CATEGORY_CONTEXT[category]}
 
-=== MARKET TRENDS (what categories & apps are rising in rankings) ===
-${sanitizeForPrompt(trends.summary || "No trend data available")}
+=== APP LANDSCAPE (4000+ apps across 28 categories — satisfaction scores, what they offer) ===
+${sanitizeForPrompt(trends.summary || "No landscape data")}
 
-=== USER PAIN POINTS (clustered complaints by category) ===
-${sanitizeForPrompt(pains.summary || "No complaint data available")}
+=== USER REVIEWS (what people HATE and what they LOVE — both matter) ===
+${sanitizeForPrompt(pains.summary || "No review data")}
 
-=== NEW CAPABILITIES (what's emerging in tech, open source, behavior) ===
-${sanitizeForPrompt(capabilities.summary || "No capability data available")}
+=== NEW CAPABILITIES (emerging tech, open source, behavior shifts) ===
+${sanitizeForPrompt(capabilities.summary || "No capability data")}
 ${sanitizeForPrompt(deepSearchContext)}
 ${saturatedSection}
 
-Generate ${maxIdeas} ideas. For EACH idea, you must identify:
-- Which TRENDING CATEGORY it targets (from the market data above)
-- Which PAIN POINT it solves (from the complaints above)
-- Which CAPABILITY makes it possible NOW (from the tech data above)
+Generate ${maxIdeas} ideas. For EACH idea:
+- Study the APP DESCRIPTIONS to understand what existing apps offer — then find what's MISSING
+- Study the POSITIVE reviews to understand what users value MOST — then amplify that
+- Study the NEGATIVE reviews to understand what's BROKEN — then fix it fundamentally, don't just patch
+- Combine with a NEW CAPABILITY that makes a 10x better solution possible NOW
 
-The idea should be at the INTERSECTION of all three — not just a reaction to one.
+The best ideas come from noticing: "Users love X about existing apps but hate Y, and new technology Z means we can give them X without Y."
 
 Each idea needs:
 - title: Creative 2-3 word name

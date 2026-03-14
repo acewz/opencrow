@@ -21,7 +21,7 @@ import {
   createPipelineStep,
   updatePipelineStep,
 } from "../store";
-import { detectTrends, clusterPainPoints, scanCapabilities } from "./collectors";
+import { analyzeAppLandscape, clusterReviews, scanCapabilities } from "./collectors";
 import { synthesizeFromTrends, deepSearch } from "./synthesizer";
 import type { GeneratedIdeaCandidate } from "./types";
 
@@ -169,25 +169,24 @@ export async function runIdeasPipeline(
   try {
     const model = config.model ?? "claude-sonnet-4-5";
 
-    // ── Step 1: Detect trends ─────────────────────────────────────────
+    // ── Step 1: Analyze app landscape ───────────────────────────────────
     const trends = await runStep(
       runId,
-      "trends",
-      () => detectTrends(),
-      (t) => `${t.risingApps.length} rising apps, ${t.trendingCategories.length} trending categories`,
+      "landscape",
+      () => analyzeAppLandscape(),
+      (t) => `${t.trendingCategories.length} underserved categories identified from ${t.summary.split("\n").length} data points`,
     );
 
-    // ── Step 2: Cluster pain points ───────────────────────────────────
-    // Focus on trending categories if we found any
+    // ── Step 2: Cluster reviews (complaints + praises) ────────────────
     const focusCategories = trends.trendingCategories.length > 0
       ? trends.trendingCategories.map((c) => c.category)
       : undefined;
 
     const pains = await runStep(
       runId,
-      "pain_points",
-      () => clusterPainPoints(focusCategories),
-      (p) => `${p.clusters.length} pain clusters across ${[...new Set(p.clusters.map((c) => c.category))].length} categories`,
+      "reviews",
+      () => clusterReviews(focusCategories),
+      (p) => `${p.clusters.length} review clusters across ${[...new Set(p.clusters.map((c) => c.category))].length} categories (complaints + praises)`,
     );
 
     // ── Step 3: Scan capabilities ─────────────────────────────────────

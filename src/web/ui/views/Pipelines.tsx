@@ -100,14 +100,16 @@ const STATUS_ICONS: Record<string, typeof CheckCircle2> = {
 };
 
 const STEP_ICONS: Record<string, typeof Database> = {
-  trends: Zap,
-  pain_points: Database,
+  landscape: Database,
+  reviews: Database,
   capabilities: Brain,
   deep_search: Brain,
   synthesis: Lightbulb,
   validate: ShieldCheck,
   store: Save,
-  // Legacy steps (backward compat)
+  // Legacy
+  trends: Zap,
+  pain_points: Database,
   collect: Database,
   signals: Zap,
   analysis: Brain,
@@ -116,19 +118,21 @@ const STEP_ICONS: Record<string, typeof Database> = {
 };
 
 const STEP_LABELS: Record<string, string> = {
-  trends: "Detect Trends",
-  pain_points: "Pain Points",
+  landscape: "App Landscape",
+  reviews: "Reviews",
   capabilities: "Capabilities",
   deep_search: "Deep Search",
-  synthesis: "Synthesize Ideas",
+  synthesis: "Synthesize",
   validate: "Validate",
   store: "Store",
   // Legacy
-  collect: "Collect Data",
-  signals: "Extract Signals",
-  analysis: "Cross-Reference",
-  generation: "Generate Ideas",
-  synthesize: "AI Analysis",
+  trends: "Trends",
+  pain_points: "Pain Points",
+  collect: "Collect",
+  signals: "Signals",
+  analysis: "Analysis",
+  generation: "Generate",
+  synthesize: "Synthesize",
 };
 
 function formatDuration(ms: number): string {
