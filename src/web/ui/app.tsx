@@ -40,6 +40,7 @@ import AppStore from "./views/AppStore";
 import Workflows from "./views/Workflows";
 import PlayStore from "./views/PlayStore";
 import Settings from "./views/Settings";
+import Sige from "./views/Sige";
 import Pipelines from "./views/Pipelines";
 import PipelineIdeas from "./views/PipelineIdeas";
 
@@ -348,6 +349,7 @@ function App() {
             {tab === "logs" && <Logs />}
             {tab === "settings" && <Settings />}
             {tab === "workflows" && <Workflows />}
+            {tab === "sige" && <Sige />}
           </div>
         </ErrorBoundary>
       </main>
