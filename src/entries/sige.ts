@@ -174,8 +174,20 @@ async function runSession(
     }),
   );
 
+  // Build a fused score lookup and enrich ranked ideas with final scores
+  const scoreMap = new Map(fusedScores.map((f) => [f.ideaId, f]));
+  const enrichedRankedIdeas: readonly ScoredIdea[] = expertResult.rankedIdeas.map((idea) => {
+    const fused = scoreMap.get(idea.id);
+    return fused
+      ? { ...idea, fusedScore: fused.fusedScore, socialScore: fused.socialScore }
+      : idea;
+  });
+
+  const enrichedExpertResult = { ...expertResult, rankedIdeas: enrichedRankedIdeas };
+
   await updateSessionStatus(sessionId, "scoring", {
     fusedScoresJson: JSON.stringify(fusedScores),
+    expertResultJson: JSON.stringify(enrichedExpertResult),
   });
 
   // ── Step 6: Report generation ────────────────────────────────────────────────
@@ -187,7 +199,7 @@ async function runSession(
     session: {
       ...session,
       gameFormulation,
-      expertResult,
+      expertResult: enrichedExpertResult,
       socialResult,
       fusedScores,
     },
