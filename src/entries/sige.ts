@@ -57,10 +57,15 @@ async function runSession(
 
   await zep.ensureUser(userId);
 
-  // Add enriched seed as an initial episode
-  await zep.addEpisodes(userId, [
-    { content: enrichedSeed, source: "seed_input", sourceDescription: "session seed" },
-  ]);
+  // Add enriched seed as episodes — chunk to stay under Zep's 10K char limit
+  const ZEP_MAX_CHARS = 9500;
+  const seedSections = enrichedSeed.split(/\n## /).filter(Boolean);
+  const seedEpisodes = seedSections.map((section, i) => ({
+    content: (i > 0 ? "## " : "") + section.slice(0, ZEP_MAX_CHARS),
+    source: "seed_input",
+    sourceDescription: `session seed section ${i + 1}`,
+  }));
+  await zep.addEpisodes(userId, seedEpisodes);
 
   const ontology = await generateOntology(enrichedSeed, { model: config.model, provider: config.provider });
 
