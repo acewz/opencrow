@@ -274,19 +274,18 @@ export class ZepClient {
   async addEpisodes(userId: string, episodes: readonly ZepEpisode[]): Promise<void> {
     if (episodes.length === 0) return;
 
-    const payload = {
-      episodes: episodes.map((ep) => ({
-        content: ep.content,
-        source: ep.source,
-        source_description: ep.sourceDescription,
-      })),
-    };
-
-    await this.requestWithRetry<unknown>(
-      "POST",
-      `/api/v2/users/${encodeURIComponent(userId)}/graph/episodes`,
-      payload,
-    );
+    for (const ep of episodes) {
+      await this.requestWithRetry<unknown>(
+        "POST",
+        "/api/v2/graph",
+        {
+          data: ep.content,
+          type: "text",
+          user_id: userId,
+          source_description: ep.sourceDescription,
+        },
+      );
+    }
 
     log.debug("Added Zep episodes", { userId, count: episodes.length });
   }
@@ -294,19 +293,23 @@ export class ZepClient {
   // ─── Graph Queries ────────────────────────────────────────────────────────
 
   async getGraphNodes(userId: string): Promise<ZepNode[]> {
-    const res = await this.requestWithRetry<{ nodes?: ZepApiNode[] }>(
-      "GET",
-      `/api/v2/users/${encodeURIComponent(userId)}/graph/nodes`,
+    const res = await this.requestWithRetry<ZepApiNode[] | { nodes?: ZepApiNode[] }>(
+      "POST",
+      `/api/v2/graph/node/user/${encodeURIComponent(userId)}`,
+      { limit: 100 },
     );
-    return (res?.nodes ?? []).map(mapNode);
+    const raw: ZepApiNode[] = Array.isArray(res) ? res : (res?.nodes ?? []);
+    return raw.map(mapNode);
   }
 
   async getGraphEdges(userId: string): Promise<ZepEdge[]> {
-    const res = await this.requestWithRetry<{ edges?: ZepApiEdge[] }>(
-      "GET",
-      `/api/v2/users/${encodeURIComponent(userId)}/graph/edges`,
+    const res = await this.requestWithRetry<ZepApiEdge[] | { edges?: ZepApiEdge[] }>(
+      "POST",
+      `/api/v2/graph/edge/user/${encodeURIComponent(userId)}`,
+      { limit: 200 },
     );
-    return (res?.edges ?? []).map(mapEdge);
+    const raw: ZepApiEdge[] = Array.isArray(res) ? res : (res?.edges ?? []);
+    return raw.map(mapEdge);
   }
 
   async searchGraph(
@@ -325,17 +328,19 @@ export class ZepClient {
       body.scope = options.scope;
     }
 
+    body.user_id = userId;
+
     const res = await this.requestWithRetry<
-      ZepApiSearchResult[] | { results?: ZepApiSearchResult[] }
+      ZepApiSearchResult[] | { results?: ZepApiSearchResult[]; edges?: ZepApiSearchResult[]; nodes?: ZepApiSearchResult[] }
     >(
       "POST",
-      `/api/v2/users/${encodeURIComponent(userId)}/graph/search`,
+      "/api/v2/graph/search",
       body,
     );
 
     const raw: ZepApiSearchResult[] = Array.isArray(res)
       ? res
-      : (res?.results ?? []);
+      : [...(res?.results ?? []), ...(res?.edges ?? []), ...(res?.nodes ?? [])];
 
     return raw.map(mapSearchResult);
   }
