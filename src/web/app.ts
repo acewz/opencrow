@@ -381,10 +381,8 @@ export function createWebApp(deps: WebAppDeps): Hono {
     app.route("/api", market);
   }
 
-  if (deps.config.sige?.enabled) {
-    const sige = createSigeRoutes();
-    app.route("/api", sige);
-  }
+  const sige = createSigeRoutes();
+  app.route("/api", sige);
 
   return app;
 }
