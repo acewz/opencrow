@@ -252,7 +252,7 @@ export class ZepClient {
         "GET",
         `/api/v2/users/${encodeURIComponent(userId)}`,
       );
-      return { userId: existing.user_id, metadata: existing.metadata };
+      return { userId: existing?.user_id ?? userId, metadata: existing?.metadata };
     } catch (err) {
       if (err instanceof ZepApiError && err.status === 404) {
         log.debug("Zep user not found, creating", { userId });
@@ -261,12 +261,12 @@ export class ZepClient {
       }
     }
 
-    const created = await this.requestWithRetry<ZepApiUser>("POST", "/api/v2/users", {
+    const created = await this.requestWithRetry<ZepApiUser | undefined>("POST", "/api/v2/users", {
       user_id: userId,
       metadata: metadata ?? {},
     });
 
-    return { userId: created.user_id, metadata: created.metadata };
+    return { userId: created?.user_id ?? userId, metadata: created?.metadata };
   }
 
   // ─── Episode Ingestion ────────────────────────────────────────────────────
