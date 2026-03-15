@@ -136,6 +136,15 @@ export async function updateSessionStatus(
 ): Promise<void> {
   const db = getDb()
 
+  // Never allow completed/failed sessions to be reset to pending
+  const TERMINAL: readonly string[] = ["completed", "failed", "cancelled"]
+  if (!TERMINAL.includes(status)) {
+    const existing = await db`SELECT status FROM sige_sessions WHERE id = ${id}`
+    if (existing.length > 0 && TERMINAL.includes(existing[0].status as string)) {
+      return
+    }
+  }
+
   if (!extra || Object.keys(extra).length === 0) {
     await db`
       UPDATE sige_sessions
