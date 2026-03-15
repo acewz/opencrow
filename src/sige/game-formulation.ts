@@ -343,13 +343,18 @@ export function validateGameFormulation(raw: unknown): GameFormulation {
   }
   const obj = raw as RawGameFormulation;
 
-  // Players
+  // Players — fallback to generic players if LLM didn't extract enough
+  let players: Player[];
   if (!Array.isArray(obj.players) || obj.players.length < 2) {
-    throw new Error(
-      `Game formulation must have at least 2 players, got ${Array.isArray(obj.players) ? obj.players.length : 0}`,
-    );
+    log.warn("Game formulation has fewer than 2 players, generating fallback players");
+    players = [
+      { id: "innovator", name: "Innovator", strategySpace: ["build_mvp", "pivot", "scale", "partner"], payoffFunction: "market share and user growth", informationSet: ["market data", "user feedback"], privateType: "risk_tolerance" },
+      { id: "incumbent", name: "Incumbent", strategySpace: ["defend", "acquire", "copy", "ignore"], payoffFunction: "revenue retention and market dominance", informationSet: ["market data", "competitive intelligence"], privateType: "resource_level" },
+      { id: "consumer", name: "Consumer Segment", strategySpace: ["adopt_early", "wait_and_see", "resist", "switch"], payoffFunction: "value for money and convenience", informationSet: ["public reviews", "price signals"] },
+    ];
+  } else {
+    players = (obj.players as unknown[]).map(validatePlayer);
   }
-  const players = (obj.players as unknown[]).map(validatePlayer);
 
   // Validate each player has at least 1 strategy
   for (const player of players) {
