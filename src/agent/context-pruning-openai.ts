@@ -43,6 +43,15 @@ function estimateMessageChars(messages: readonly OpenAIMessage[]): number {
   for (const msg of messages) {
     if (typeof msg.content === "string") {
       total += msg.content.length;
+    } else if (Array.isArray(msg.content)) {
+      for (const part of msg.content) {
+        if (part.type === "text") {
+          total += part.text.length;
+        } else if (part.type === "image_url") {
+          // Data URIs can be large — count the base64 payload length
+          total += part.image_url.url.length;
+        }
+      }
     }
     if (msg.tool_calls) {
       for (const tc of msg.tool_calls) {

@@ -77,6 +77,8 @@ function summarizeToolMessage(msg: OpenAIMessage): OpenAIMessage {
   };
 }
 
+
+
 /**
  * Compress old iterations in the agentic loop to reduce token usage.
  * Pre-loop messages are never touched. Recent iterations are kept in full.

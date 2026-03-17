@@ -24,10 +24,11 @@ function formatMessageLine(m: ConversationMessage): string {
     return `[assistant]: ${m.content}`;
   }
   // User messages with senderName: content already carries "[Name]: text" label
-  if (m.senderName) {
-    return m.content;
+  let line = m.senderName ? m.content : `[user]: ${m.content}`;
+  if (m.imageBase64) {
+    line += "\n[User attached an image]";
   }
-  return `[user]: ${m.content}`;
+  return line;
 }
 
 /**

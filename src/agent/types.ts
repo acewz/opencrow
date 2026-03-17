@@ -36,6 +36,8 @@ export interface ConversationMessage {
   readonly content: string;
   readonly timestamp: number;
   readonly senderName?: string;
+  readonly imageBase64?: string;
+  readonly imageMimeType?: string;
 }
 
 export type AiProvider = "openrouter" | "agent-sdk" | "alibaba";
@@ -154,6 +156,13 @@ export interface AgentOptions {
 
 // ─── OpenAI / OpenRouter message format ──────────────────────────────────────
 
+export type OpenAIContentPart =
+  | { readonly type: "text"; readonly text: string }
+  | {
+      readonly type: "image_url";
+      readonly image_url: { readonly url: string };
+    };
+
 export interface OpenAIToolCall {
   readonly id: string;
   readonly type: "function";
@@ -165,7 +174,7 @@ export interface OpenAIToolCall {
 
 export interface OpenAIMessage {
   readonly role: "system" | "user" | "assistant" | "tool";
-  readonly content?: string | null;
+  readonly content?: string | null | readonly OpenAIContentPart[];
   readonly tool_calls?: readonly OpenAIToolCall[];
   readonly tool_call_id?: string;
 }

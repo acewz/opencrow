@@ -2,6 +2,7 @@ import type {
   AgentOptions,
   AgentResponse,
   ConversationMessage,
+  OpenAIContentPart,
   OpenAIMessage,
   OpenAIToolCall,
 } from "./types";
@@ -72,7 +73,21 @@ function toOpenRouterMessages(
   const result: OpenAIMessage[] = [{ role: "system", content: systemPrompt }];
 
   for (const msg of messages) {
-    result.push({ role: msg.role, content: msg.content });
+    if (msg.imageBase64 && msg.imageMimeType && msg.role === "user") {
+      const parts: OpenAIContentPart[] = [];
+      if (msg.content) {
+        parts.push({ type: "text", text: msg.content });
+      }
+      parts.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${msg.imageMimeType};base64,${msg.imageBase64}`,
+        },
+      });
+      result.push({ role: msg.role, content: parts });
+    } else {
+      result.push({ role: msg.role, content: msg.content });
+    }
   }
 
   return result;

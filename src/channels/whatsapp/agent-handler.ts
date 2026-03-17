@@ -255,6 +255,21 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
       }
     }
 
+    // Attach image data from the current message to the last history entry
+    // so vision-capable models (via OpenRouter) can process it.
+    if (msg.content.media?.buffer && msg.content.media.type === "image") {
+      const imageBase64 = msg.content.media.buffer.toString("base64");
+      const imageMimeType = msg.content.media.mimeType ?? "image/jpeg";
+      const lastIdx = history.length - 1;
+      if (lastIdx >= 0 && history[lastIdx]!.role === "user") {
+        const lastEntry = history[lastIdx]!;
+        history = [
+          ...history.slice(0, lastIdx),
+          { ...lastEntry, imageBase64, imageMimeType },
+        ];
+      }
+    }
+
     await channel.sendTyping?.(msg.chatId);
 
     const tracker = createActivityLog(channel, msg.chatId);

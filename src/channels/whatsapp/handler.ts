@@ -1,4 +1,5 @@
 import type { WASocket } from "@whiskeysockets/baileys";
+import { downloadMediaMessage } from "@whiskeysockets/baileys";
 import type {
   IncomingMessage,
   MessageHandler,
@@ -83,6 +84,8 @@ async function processMessage(
   }
 
   const text = extractText(msg);
+  // Allow image-only messages through even without caption text — extractText
+  // returns "[Image]" as a placeholder, so text will be non-null.
   if (!text) return;
 
   const isGroup = remoteJid.endsWith("@g.us");
@@ -154,13 +157,51 @@ async function processMessage(
       ? await getGroupParticipants(remoteJid)
       : undefined;
 
+  // Download image buffer if present and within size limit
+  let mediaBuffer: Buffer | undefined;
+  let mediaMimeType: string | undefined;
+
+  const imageMsg = msg.message?.imageMessage;
+  if (imageMsg) {
+    const fileLength = Number(imageMsg.fileLength ?? 0);
+    if (fileLength <= 5 * 1024 * 1024) {
+      try {
+        const downloadResult = await Promise.race([
+          downloadMediaMessage(msg, "buffer", {}),
+          new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error("Image download timeout")), 10_000),
+          ),
+        ]);
+        mediaBuffer = Buffer.isBuffer(downloadResult)
+          ? downloadResult
+          : Buffer.from(downloadResult as Uint8Array);
+        mediaMimeType = imageMsg.mimetype ?? "image/jpeg";
+      } catch (err) {
+        log.debug("Failed to download WhatsApp image", { error: err });
+      }
+    } else {
+      log.debug("Skipping large image download", { fileLength });
+    }
+  }
+
   const incoming: IncomingMessage = {
     id: msg.key.id ?? crypto.randomUUID(),
     channel: "whatsapp",
     chatId: remoteJid,
     senderId,
     senderName: pushName,
-    content: { text: cleanedText },
+    content: {
+      text: cleanedText,
+      ...(mediaBuffer
+        ? {
+            media: {
+              type: "image" as const,
+              buffer: mediaBuffer,
+              mimeType: mediaMimeType ?? "image/jpeg",
+            },
+          }
+        : {}),
+    },
     timestamp: msg.messageTimestamp
       ? Number(msg.messageTimestamp)
       : Math.floor(Date.now() / 1000),
