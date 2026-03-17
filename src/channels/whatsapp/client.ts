@@ -69,10 +69,33 @@ export function createWhatsAppChannel(botName: string): WhatsAppChannel {
     names.set(participantJid, pushName);
   }
 
+  function cleanupGroupCache(): void {
+    const cutoff = Date.now() - GROUP_CACHE_TTL_MS * 3;
+    for (const [chatId, fetchedAt] of groupMetaFetched) {
+      if (fetchedAt < cutoff) {
+        groupMetaFetched.delete(chatId);
+        groupNameCache.delete(chatId);
+      }
+    }
+    // Cap groupNameCache at 200 entries — evict oldest fetched first
+    if (groupNameCache.size > 200) {
+      const sorted = Array.from(groupMetaFetched.entries()).sort(
+        ([, a], [, b]) => a - b,
+      );
+      for (const [chatId] of sorted) {
+        if (groupNameCache.size <= 200) break;
+        groupMetaFetched.delete(chatId);
+        groupNameCache.delete(chatId);
+      }
+    }
+  }
+
   async function fetchGroupParticipants(
     chatId: string,
   ): Promise<readonly GroupParticipant[]> {
     if (!sock || !chatId.endsWith("@g.us")) return [];
+
+    cleanupGroupCache();
 
     const lastFetch = groupMetaFetched.get(chatId) ?? 0;
     if (Date.now() - lastFetch > GROUP_CACHE_TTL_MS) {
@@ -459,6 +482,28 @@ export function createWhatsAppChannel(botName: string): WhatsAppChannel {
         await sock.sendPresenceUpdate("composing", chatId);
       } catch {
         // non-fatal
+      }
+    },
+
+    async sendReaction(chatId: string, messageKey: unknown, emoji: string) {
+      if (!sock) return;
+      try {
+        await sock.sendMessage(chatId, {
+          react: {
+            text: emoji,
+            key: messageKey as import("@whiskeysockets/baileys").WAMessageKey,
+          },
+        });
+      } catch {
+        // non-fatal
+      }
+    },
+
+    async markRead(rawMessage: unknown) {
+      if (!sock) return;
+      const msg = rawMessage as { key?: import("@whiskeysockets/baileys").WAMessageKey };
+      if (msg.key) {
+        await sock.readMessages([msg.key]);
       }
     },
 

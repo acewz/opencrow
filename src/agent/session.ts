@@ -43,6 +43,7 @@ export async function getSessionHistory(
     role: msg.role,
     content: msg.content,
     timestamp: msg.timestamp,
+    senderName: msg.senderName ?? undefined,
   }));
 
   const summary = await getLatestSummary(channel, chatId);

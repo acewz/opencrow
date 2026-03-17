@@ -35,6 +35,7 @@ export interface ConversationMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly timestamp: number;
+  readonly senderName?: string;
 }
 
 export type AiProvider = "openrouter" | "agent-sdk" | "alibaba";
@@ -148,6 +149,7 @@ export interface AgentOptions {
   readonly sdkHooks?: Record<string, unknown>;
   readonly abortSignal?: AbortSignal;
   readonly usageContext?: UsageContext;
+  readonly maxPromptHistory?: number;
 }
 
 // ─── OpenAI / OpenRouter message format ──────────────────────────────────────

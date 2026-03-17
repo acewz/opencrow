@@ -10,7 +10,8 @@ const log = createLogger("whatsapp-handler");
 
 const STATUS_BROADCAST = "status@broadcast";
 const MAX_DEDUP_SIZE = 1000;
-const recentMessageIds = new Set<string>();
+const DEDUP_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const recentMessageIds = new Map<string, number>();
 
 type GetGroupParticipants = (
   chatId: string,
@@ -65,10 +66,19 @@ async function processMessage(
       log.debug("Skipping duplicate message", { msgId });
       return;
     }
-    recentMessageIds.add(msgId);
+    recentMessageIds.set(msgId, Date.now());
+
+    // Evict expired entries when over capacity
     if (recentMessageIds.size > MAX_DEDUP_SIZE) {
-      const first = recentMessageIds.values().next().value;
-      if (first !== undefined) recentMessageIds.delete(first);
+      const cutoff = Date.now() - DEDUP_TTL_MS;
+      for (const [id, ts] of recentMessageIds) {
+        if (ts < cutoff) recentMessageIds.delete(id);
+      }
+      // Still over limit — drop oldest
+      if (recentMessageIds.size > MAX_DEDUP_SIZE) {
+        const first = recentMessageIds.keys().next().value;
+        if (first !== undefined) recentMessageIds.delete(first);
+      }
     }
   }
 
@@ -101,7 +111,24 @@ async function processMessage(
       return bare === botJidBare || bare === botLidBare;
     });
 
-    mentioned = mentionedByName || mentionedByJid;
+    // Reply-to-bot: check if user replied to a bot message
+    const contextInfo =
+      msg.message?.extendedTextMessage?.contextInfo ??
+      msg.message?.imageMessage?.contextInfo ??
+      msg.message?.videoMessage?.contextInfo ??
+      msg.message?.audioMessage?.contextInfo ??
+      msg.message?.documentMessage?.contextInfo ??
+      msg.message?.stickerMessage?.contextInfo ??
+      null;
+    const replyParticipant = contextInfo?.participant;
+    const repliedToBot = replyParticipant
+      ? (() => {
+          const bare = replyParticipant.split("@")[0]?.split(":")[0];
+          return bare === botJidBare || bare === botLidBare;
+        })()
+      : false;
+
+    mentioned = mentionedByName || mentionedByJid || repliedToBot;
   }
 
   // Strip bot name and all @mention IDs (JID, LID) from text when mentioned
@@ -157,14 +184,33 @@ function extractText(
   const m = msg.message;
   if (!m) return null;
 
-  return (
+  const text =
     m.conversation ??
     m.extendedTextMessage?.text ??
     m.imageMessage?.caption ??
     m.videoMessage?.caption ??
     m.documentMessage?.caption ??
-    null
-  );
+    null;
+
+  if (text) return text;
+
+  // Media-only messages — return placeholder so the agent can acknowledge them
+  if (m.imageMessage) return "[Image]";
+  if (m.videoMessage) return "[Video]";
+  if (m.audioMessage) return "[Audio message]";
+  if (m.ptvMessage) return "[Voice message]";
+  if (m.stickerMessage) return "[Sticker]";
+  if (m.documentMessage) {
+    const rawName = m.documentMessage.fileName;
+    const safeName = rawName
+      ? rawName.replace(/[\[\]\n\r]/g, "").slice(0, 100)
+      : "";
+    return safeName ? `[Document: ${safeName}]` : "[Document]";
+  }
+  if (m.contactMessage) return "[Contact card]";
+  if (m.locationMessage) return "[Location]";
+
+  return null;
 }
 
 function stripMention(text: string, botName: string): string {

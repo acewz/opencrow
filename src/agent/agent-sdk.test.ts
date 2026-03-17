@@ -608,9 +608,9 @@ describe("buildPromptWithHistory", () => {
     expect(afterHistory).not.toContain("Message 1");
   });
 
-  it("limits history to MAX_HISTORY_IN_PROMPT (10) messages", () => {
+  it("limits history to MAX_HISTORY_IN_PROMPT (50) messages", () => {
     const messages: ConversationMessage[] = [];
-    for (let i = 0; i < 15; i++) {
+    for (let i = 0; i < 60; i++) {
       messages.push({
         role: i % 2 === 0 ? "user" : "assistant",
         content: `Message ${i}`,
@@ -623,13 +623,13 @@ describe("buildPromptWithHistory", () => {
     expect(result).toContain("<conversation_history>");
     expect(result).toContain("</conversation_history>");
 
-    // Last message (Message 14) should be outside the history
-    expect(result).toContain("[user]: Message 14");
+    // Last message (Message 59) should be outside the history
+    expect(result).toContain("[assistant]: Message 59");
 
     // Count how many history entries are included
-    // Should be at most 10 messages in history (indices 4-13, since 14 is the last)
+    // Should be at most 50 messages in history + 1 last message
     const historyMatches = result.match(/\[(user|assistant)\]: /g);
-    expect(historyMatches?.length).toBeLessThanOrEqual(11); // 10 in history + 1 last message
+    expect(historyMatches?.length).toBeLessThanOrEqual(51); // 50 in history + 1 last message
   });
 
   it("formats each history entry with role prefix", () => {

@@ -52,6 +52,8 @@ export interface Channel {
   editMessage?(chatId: string, messageId: number, text: string): Promise<void>;
   deleteMessage?(chatId: string, messageId: number): Promise<void>;
   sendTyping?(chatId: string): Promise<void>;
+  sendReaction?(chatId: string, messageKey: unknown, emoji: string): Promise<void>;
+  markRead?(rawMessage: unknown): Promise<void>;
   onMessage(handler: MessageHandler): void;
   isConnected(): boolean;
 }

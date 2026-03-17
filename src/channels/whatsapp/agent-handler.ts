@@ -88,9 +88,31 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
     // Block DMs when no allowedNumbers are configured (groups-only mode)
     if (!isGroup && allowedNumbers.length === 0) return;
 
+    // Send read receipt after allowlist checks pass (fire-and-forget)
+    if (channel.markRead && msg.raw) {
+      channel.markRead(msg.raw).catch(() => {});
+    }
+
     const text = msg.content.text ?? "";
 
-    if (text === "/clear") {
+    const trimmedText = text.trim();
+
+    if (trimmedText === "/stop") {
+      const active = activeSessions.get(msg.chatId);
+      if (active) {
+        active.abort();
+        activeSessions.delete(msg.chatId);
+        log.info("Stopped in-flight chat on /stop (WhatsApp)", {
+          chatId: msg.chatId,
+        });
+        await channel.sendMessage(msg.chatId, { text: "Stopped." });
+      } else {
+        await channel.sendMessage(msg.chatId, { text: "Nothing running." });
+      }
+      return;
+    }
+
+    if (trimmedText === "/clear") {
       const active = activeSessions.get(msg.chatId);
       if (active) {
         active.abort();
@@ -107,20 +129,7 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
 
     if (!text.trim()) return;
 
-    let participantContext = "";
-    if (msg.groupParticipants && msg.groupParticipants.length > 0) {
-      const names = msg.groupParticipants
-        .filter((p) => p.name)
-        .map((p) => p.name)
-        .join(", ");
-      if (names) {
-        participantContext = `[Group members: ${names}]\n`;
-      }
-    }
-
-    const labeledText =
-      participantContext +
-      (msg.senderName ? `[${msg.senderName}]: ${text}` : text);
+    const labeledText = msg.senderName ? `[${msg.senderName}]: ${text}` : text;
 
     await addUserMessage(
       sessionNamespace,
@@ -137,23 +146,49 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
       return;
     }
 
+    if (activeSessions.has(msg.chatId)) {
+      await channel.sendMessage(msg.chatId, {
+        text: "Still working on a previous message. Use /stop to cancel it first.",
+      });
+      return;
+    }
+
+    // Claim session slot synchronously after the guard — no awaits between
+    // has() and set() to prevent concurrent messages from both passing.
+    const abortController = new AbortController();
+    activeSessions.set(msg.chatId, abortController);
+
+    // Single registry lookup — used for all subsequent agent config reads
     const freshAgent = agentRegistry.getById(agentId) ?? agent;
+
     if (freshAgent.maxInputLength && text.length > freshAgent.maxInputLength) {
+      activeSessions.delete(msg.chatId);
       await channel.sendMessage(msg.chatId, {
         text: `Message too long (${text.length} chars). Maximum is ${freshAgent.maxInputLength} characters.`,
       });
       return;
     }
 
-    const abortController = new AbortController();
-    activeSessions.set(msg.chatId, abortController);
+    // Acknowledge receipt with reaction
+    if (channel.sendReaction && msg.raw) {
+      const rawKey = (msg.raw as Record<string, unknown>)?.key;
+      if (
+        typeof rawKey === "object" &&
+        rawKey !== null &&
+        "id" in rawKey &&
+        typeof (rawKey as Record<string, unknown>).id === "string" &&
+        "remoteJid" in rawKey &&
+        typeof (rawKey as Record<string, unknown>).remoteJid === "string"
+      ) {
+        channel.sendReaction(msg.chatId, rawKey, "\uD83D\uDC40").catch(() => {});
+      }
+    }
 
-    const freshAgentPreCheck = agentRegistry.getById(agentId) ?? agent;
-    const isStateless = freshAgentPreCheck.stateless === true;
-    const historyLimit = freshAgentPreCheck.maxHistoryMessages;
-    const keepAssistant = freshAgentPreCheck.keepAssistantMessages;
+    const isStateless = freshAgent.stateless === true;
+    const historyLimit = freshAgent.maxHistoryMessages;
+    const keepAssistant = freshAgent.keepAssistantMessages;
 
-    const MAX_WA_CONTEXT = 20;
+    const MAX_WA_CONTEXT = 60;
     let history: readonly ConversationMessage[];
     if (isStateless) {
       const recentMsgs = await getMessagesByChat(
@@ -178,6 +213,8 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
       history = history.slice(-historyLimit);
     }
 
+    // Inject group member list once at the top of the history so the LLM
+    // knows who is in the conversation without the label appearing on every
     // If keepAssistantMessages is set, drop older assistant messages to save tokens.
     // This is useful for group bots whose own replies are verbose — only keep the
     // N most recent assistant turns so the model still has continuity.
@@ -194,12 +231,35 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
       }
     }
 
+    // Inject group member context ONCE at the top of history (after trimming
+    // so the synthetic pair can't be evicted by keepAssistant).
+    if (msg.groupParticipants && msg.groupParticipants.length > 0) {
+      const names = msg.groupParticipants
+        .filter((p) => p.name)
+        .map((p) => p.name)
+        .join(", ");
+      if (names) {
+        history = [
+          {
+            role: "user" as const,
+            content: `[Group members: ${names}]`,
+            timestamp: 0,
+          },
+          {
+            role: "assistant" as const,
+            content: "Noted.",
+            timestamp: 0,
+          },
+          ...history,
+        ];
+      }
+    }
+
     await channel.sendTyping?.(msg.chatId);
 
     const tracker = createActivityLog(channel, msg.chatId);
 
-    const agentForOpts = agentRegistry.getById(agentId) ?? agent;
-    const baseAgentOpts = await buildOptions(agentForOpts, tracker.onProgress);
+    const baseAgentOpts = await buildOptions(freshAgent, tracker.onProgress);
 
     const isAgentSdk = (baseAgentOpts.provider ?? "agent-sdk") === "agent-sdk";
     const existingSdkSession = isAgentSdk
@@ -209,6 +269,7 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
     const agentOpts = isAgentSdk
       ? {
           ...baseAgentOpts,
+          abortSignal: abortController.signal,
           sdkSessionId: existingSdkSession ?? undefined,
           onSdkSessionId: (sid: string) => {
             saveSdkSessionId(sessionNamespace, msg.chatId, agentId, sid).catch(
@@ -216,7 +277,10 @@ export function createWhatsAppAgentHandler(deps: WhatsAppHandlerDeps): void {
             );
           },
         }
-      : baseAgentOpts;
+      : {
+          ...baseAgentOpts,
+          abortSignal: abortController.signal,
+        };
 
     try {
       const response = await chat(history, agentOpts);

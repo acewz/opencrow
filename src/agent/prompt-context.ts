@@ -11,7 +11,24 @@ import type { ConversationMessage } from "./types";
 
 const log = createLogger("prompt-context");
 
-export const MAX_HISTORY_IN_PROMPT = 10;
+export const MAX_HISTORY_IN_PROMPT = 50;
+
+/**
+ * Format a single ConversationMessage into a prompt line.
+ * For user messages with a senderName, the content already contains the
+ * "[Name]: text" label (written by agent-handler), so we use it as-is.
+ * For assistant messages we prepend "[assistant]: ".
+ */
+function formatMessageLine(m: ConversationMessage): string {
+  if (m.role === "assistant") {
+    return `[assistant]: ${m.content}`;
+  }
+  // User messages with senderName: content already carries "[Name]: text" label
+  if (m.senderName) {
+    return m.content;
+  }
+  return `[user]: ${m.content}`;
+}
 
 /**
  * Extract the last message content from a messages array.
@@ -33,25 +50,44 @@ export function lastUserMessage(
  */
 export function buildPromptWithHistory(
   messages: readonly ConversationMessage[],
+  maxHistory = MAX_HISTORY_IN_PROMPT,
 ): string {
-  const lastMsg = lastUserMessage(messages);
+  const lastMsg = messages[messages.length - 1];
+  if (!lastMsg) return "";
 
   // Single message or empty — no history to include
-  if (messages.length <= 1) return lastMsg;
+  if (messages.length <= 1) return lastMsg.content;
 
   // Take recent history (excluding the last message)
   const historySlice = messages.slice(
-    Math.max(0, messages.length - 1 - MAX_HISTORY_IN_PROMPT),
+    Math.max(0, messages.length - 1 - maxHistory),
     messages.length - 1,
   );
 
-  if (historySlice.length === 0) return lastMsg;
+  if (historySlice.length === 0) return lastMsg.content;
 
   const history = historySlice
-    .map((m) => `[${m.role}]: ${m.content}`)
+    .map((m) => formatMessageLine(m))
     .join("\n\n");
 
-  return `<conversation_history>\n${history}\n</conversation_history>\n\n[user]: ${lastMsg}`;
+  // The last user message: if it has a senderName the content already carries
+  // the "[Name]: text" label, so we use the content directly.
+  const lastLine = formatMessageLine(lastMsg);
+
+  // Add anti-repetition instruction between history and current message
+  // for ongoing conversations (>8 messages with at least one assistant turn)
+  let instruction = "";
+  if (historySlice.length > 8) {
+    const hasAssistantMessages = historySlice.some(
+      (m) => m.role === "assistant",
+    );
+    if (hasAssistantMessages) {
+      instruction =
+        "\n\n<instruction>Reference prior messages naturally. Never repeat jokes, observations, or phrases you already used above. Keep responses short (1-3 sentences).</instruction>";
+    }
+  }
+
+  return `<conversation_history>\n${history}\n</conversation_history>${instruction}\n\n${lastLine}`;
 }
 
 /**

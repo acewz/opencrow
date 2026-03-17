@@ -125,7 +125,7 @@ export async function chat(
   messages: readonly ConversationMessage[],
   options: AgentOptions,
 ): Promise<AgentResponse> {
-  const prompt = buildPromptWithHistory(messages);
+  const prompt = buildPromptWithHistory(messages, options.maxPromptHistory);
   const enrichedPrompt = await enrichPromptWithContext(
     prompt,
     options.sdkSessionId,
@@ -483,7 +483,7 @@ export async function agenticChat(
   maxIterations: number,
   onProgress?: (event: ProgressEvent) => void,
 ): Promise<AgentResponse> {
-  const prompt = buildPromptWithHistory(messages);
+  const prompt = buildPromptWithHistory(messages, options.maxPromptHistory);
   const agentId = options.agentId ?? "default";
   const opencrowMcp = createOpenCrowMcpServer(registry);
   const stderrCapture = buildStderrHandler(agentId);
